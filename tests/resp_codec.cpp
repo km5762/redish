@@ -33,6 +33,16 @@ TEST_F(RespCodecTest, EmptyValidString) {
 }
 
 TEST_F(RespCodecTest, TrailingInput) {
-    const auto output = m_codec.decode("+\r\nTEST");
+    const auto output = m_codec.decode("+\r\nTRAILING");
+    EXPECT_EQ(std::nullopt, output);
+}
+
+TEST_F(RespCodecTest, UnexpectedPrefix) {
+    const auto output = m_codec.decode("UNEXPECTED+ERR\r\n");
+    EXPECT_EQ(std::nullopt, output);
+}
+
+TEST_F(RespCodecTest, MultipleMessagesNotAllowed) {
+    const auto output = m_codec.decode("+OK\r\n+MORE\r\n");
     EXPECT_EQ(std::nullopt, output);
 }
