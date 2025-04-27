@@ -13,26 +13,27 @@
 class RespCodec {
 public:
     struct SimpleString {
-        std::string value;
+        std::string value{};
     };
 
     struct SimpleError {
-        std::string value;
+        std::string prefix{};
+        std::string value{};
     };
 
     struct Integer {
-        int value;
+        int value{};
     };
 
     struct BulkString {
-        std::optional<std::string> value;
+        std::optional<std::string> value{};
     };
 
     struct Array;
     using Message = std::variant<SimpleString, SimpleError, Integer, BulkString, Array>;
 
     struct Array {
-        std::vector<Message> value;
+        std::vector<Message> value{};
     };
 
     std::optional<Message> decode(std::string_view data);
@@ -48,6 +49,8 @@ private:
     bool at_data_end() const { return m_position >= m_data.size(); };
 
     std::optional<SimpleString> decode_simple_string();
+
+    std::optional<SimpleError> decode_simple_error();
 };
 
 
