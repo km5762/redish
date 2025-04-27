@@ -14,25 +14,20 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-
-# Include project headers
 include_directories(include)
-
-# Find all source files
 file(GLOB_RECURSE SOURCES "src/*.cpp")
-
-# Main executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Find all test files
-file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
-
-# Create a single test executable
-add_executable(all_tests ${TEST_SOURCES})
-
-# Link GoogleTest
-target_link_libraries(all_tests GTest::gtest_main)
-
-# Discover tests
 include(GoogleTest)
-gtest_discover_tests(all_tests)
+file(GLOB TEST_SOURCES tests/*.cpp)
+foreach (TEST_SOURCE ${TEST_SOURCES})
+    get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+    set(SRC_FILE "${CMAKE_SOURCE_DIR}/src/${TEST_NAME}.cpp")
+    if (NOT EXISTS ${SRC_FILE})
+        message(FATAL_ERROR "Test for '${TEST_NAME}' but no implementation at ${SRC_FILE}")
+    endif ()
+    set(INCLUDE_FILE "${CMAKE_SOURCE_DIR}/include/${TEST_NAME}.h")
+    add_executable(${TEST_NAME} ${TEST_SOURCE} ${SRC_FILE})
+    target_link_libraries(${TEST_NAME} GTest::gtest_main)
+    gtest_discover_tests(${TEST_NAME})
+endforeach ()
