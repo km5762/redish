@@ -92,3 +92,38 @@ TEST_F(RespCodecTest, SimpleErrorCrNoLf) {
     const auto output = m_codec.decode("-PREFIX\r");
     EXPECT_EQ(std::nullopt, output);
 }
+
+TEST_F(RespCodecTest, IntegerNoSign) {
+    const auto output = m_codec.decode(":0\r\n");
+    EXPECT_EQ(0, std::get<RespCodec::Integer>(*output).value);
+}
+
+TEST_F(RespCodecTest, IntegerWithPlus) {
+    const auto output = m_codec.decode(":+1\r\n");
+    EXPECT_EQ(1, std::get<RespCodec::Integer>(*output).value);
+}
+
+TEST_F(RespCodecTest, IntegerWithMinus) {
+    const auto output = m_codec.decode(":-1\r\n");
+    EXPECT_EQ(-1, std::get<RespCodec::Integer>(*output).value);
+}
+
+TEST_F(RespCodecTest, IntegerEmptyWithPlus) {
+    const auto output = m_codec.decode(":+\r\n");
+    EXPECT_EQ(std::nullopt, output);
+}
+
+TEST_F(RespCodecTest, IntegerEmptyWithMinus) {
+    const auto output = m_codec.decode(":-\r\n");
+    EXPECT_EQ(std::nullopt, output);
+}
+
+TEST_F(RespCodecTest, IntegerEmpty) {
+    const auto output = m_codec.decode(":\r\n");
+    EXPECT_EQ(std::nullopt, output);
+}
+
+TEST_F(RespCodecTest, IntegerNonNumeric) {
+    const auto output = m_codec.decode(":+123ABC\r\n");
+    EXPECT_EQ(std::nullopt, output);
+}

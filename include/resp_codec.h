@@ -51,6 +51,8 @@ private:
     std::optional<SimpleString> decode_simple_string();
 
     std::optional<SimpleError> decode_simple_error();
+
+    std::optional<Integer> decode_integer();
 };
 
 
