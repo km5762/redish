@@ -46,13 +46,19 @@ private:
 
     char peek() const { return m_data[m_position]; }
 
-    bool at_data_end() const { return m_position >= m_data.size(); };
+    bool at_data_end() const { return m_position >= m_data.size(); }
+
+    std::optional<Message> decode_next();
 
     std::optional<SimpleString> decode_simple_string();
 
     std::optional<SimpleError> decode_simple_error();
 
     std::optional<Integer> decode_integer();
+
+    std::optional<BulkString> decode_bulk_string();
+
+    std::optional<Array> decode_array();
 };
 
 

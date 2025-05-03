@@ -127,3 +127,23 @@ TEST_F(RespCodecTest, IntegerNonNumeric) {
     const auto output = m_codec.decode(":+123ABC\r\n");
     EXPECT_EQ(std::nullopt, output);
 }
+
+TEST_F(RespCodecTest, BulkStringHappyPath) {
+    const auto output = m_codec.decode("$5\r\nhello\r\n");
+    EXPECT_EQ("hello", std::get<RespCodec::BulkString>(*output).value.value());
+}
+
+TEST_F(RespCodecTest, BulkStringNull) {
+    const auto output = m_codec.decode("$-1\r\n");
+    EXPECT_EQ(std::nullopt, std::get<RespCodec::BulkString>(*output).value);
+}
+
+TEST_F(RespCodecTest, BulkStringEmpty) {
+    const auto output = m_codec.decode("$0\r\n\r\n");
+    EXPECT_EQ("", std::get<RespCodec::BulkString>(*output).value);
+}
+
+TEST_F(RespCodecTest, BulkStringNoCrlf) {
+    const auto output = m_codec.decode("$5\r\nhello");
+    EXPECT_EQ(std::nullopt, output);
+}

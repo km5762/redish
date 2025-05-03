@@ -10,6 +10,11 @@
 
 std::optional<RespCodec::Message> RespCodec::decode(const std::string_view data) {
     m_data = data;
+
+    return decode_next();
+}
+
+std::optional<RespCodec::Message> RespCodec::decode_next() {
     std::optional<Message> message{};
     switch (advance()) {
         case '+':
@@ -21,12 +26,15 @@ std::optional<RespCodec::Message> RespCodec::decode(const std::string_view data)
         case ':':
             message = decode_integer();
             break;
+        case '$':
+            message = decode_bulk_string();
+            break;
         default:
             message = std::nullopt;
     }
 
     // if we have not consumed all the input
-    if (m_position != data.size()) {
+    if (m_position != m_data.size()) {
         return std::nullopt;
     }
     return message;
@@ -114,3 +122,59 @@ std::optional<RespCodec::Integer> RespCodec::decode_integer() {
 
     return std::nullopt;
 }
+
+std::optional<RespCodec::BulkString> RespCodec::decode_bulk_string() {
+    const size_t start{m_position};
+    size_t size{};
+
+    while (m_position + 1 < m_data.size()) {
+        if (advance() == '\r' && peek() == '\n') {
+            const std::string_view value{m_data.data() + start, m_position - start - 1};
+            advance(); // consume newline
+
+            if (value == "-1") {
+                return BulkString{std::nullopt};
+            }
+
+            auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), size);
+
+            if (ec != std::errc()) {
+                return std::nullopt;
+            }
+            break;
+        }
+    }
+
+
+    std::string value{m_data.data() + m_position, size};
+    m_position += size;
+
+
+    if (m_position >= m_data.size() || advance() != '\r' || peek() != '\n') {
+        return std::nullopt;
+    }
+
+    advance(); // consume newline
+
+    return BulkString{std::move(value)};
+}
+
+std::optional<RespCodec::Array> RespCodec::decode_array() {
+    const size_t start{m_position};
+    size_t size{};
+
+    while (m_position + 1 < m_data.size()) {
+        if (advance() == '\r' && peek() == '\n') {
+            const std::string_view value{m_data.data() + start, m_position - start - 1};
+            advance(); // consume newline
+
+            auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), size);
+
+            if (ec != std::errc()) {
+                return std::nullopt;
+            }
+            break;
+        }
+    }
+}
+
