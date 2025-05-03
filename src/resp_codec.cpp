@@ -5,8 +5,8 @@
 #include "resp_codec.h"
 
 #include <charconv>
+#include <format>
 #include <iostream>
-#include <ostream>
 
 std::optional<RespCodec::Message> RespCodec::decode(const std::string_view data) {
     m_data = data;
@@ -199,6 +199,63 @@ std::optional<RespCodec::Array> RespCodec::decode_array() {
 
     return Array{std::move(messages)};
 }
+
+std::string RespCodec::encode(const Message &message) {
+    return std::visit([this](auto &&msg) -> std::string {
+        using T = std::decay_t<decltype(msg)>;
+
+        if constexpr (std::is_same_v<T, SimpleString>) {
+            return encode_simple_string(msg);
+        } else if constexpr (std::is_same_v<T, SimpleError>) {
+            return encode_simple_error(msg);
+        } else if constexpr (std::is_same_v<T, Integer>) {
+            return encode_integer(msg);
+        } else if constexpr (std::is_same_v<T, BulkString>) {
+            return encode_bulk_string(msg);
+        } else if constexpr (std::is_same_v<T, Array>) {
+            return encode_array(msg);
+        } else {
+            static_assert(always_false<T>, "Non-exhaustive visitor");
+        }
+
+        return {};
+    }, message);
+}
+
+std::string RespCodec::encode_simple_string(const SimpleString &simple_string) {
+    return std::format("+{}\r\n", simple_string.value);
+}
+
+std::string RespCodec::encode_simple_error(const SimpleError &simple_error) {
+    return std::format("-{} {}\r\n", simple_error.prefix, simple_error.value);
+}
+
+std::string RespCodec::encode_integer(const Integer &integer) {
+    return std::format(":{}\r\n", integer.value);
+}
+
+std::string RespCodec::encode_bulk_string(const BulkString &bulk_string) {
+    if (!bulk_string.value.has_value()) {
+        return "$-1\r\n";
+    }
+    return std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value);
+}
+
+std::string RespCodec::encode_array(const Array &array) {
+    if (!array.value.has_value()) {
+        return "*-1\r\n";
+    }
+
+    std::string encoded{std::format("*{}\r\n", array.value->size())};
+
+    for (const Message &message: *array.value) {
+        encoded += encode(message);
+    }
+
+    return encoded;
+}
+
+
 
 
 

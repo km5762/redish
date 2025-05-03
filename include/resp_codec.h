@@ -10,6 +10,9 @@
 #include <variant>
 #include <vector>
 
+template<typename T>
+inline constexpr bool always_false = false;
+
 class RespCodec {
 public:
     struct SimpleString {
@@ -48,6 +51,8 @@ public:
 
     std::optional<Message> decode(std::string_view data);
 
+    static std::string encode(const Message &message);
+
 private:
     std::string_view m_data{};
     size_t m_position{0};
@@ -69,6 +74,16 @@ private:
     std::optional<BulkString> decode_bulk_string();
 
     std::optional<Array> decode_array();
+
+    static std::string encode_simple_string(const SimpleString &simple_string);
+
+    static std::string encode_simple_error(const SimpleError &simple_error);
+
+    static std::string encode_integer(const Integer &integer);
+
+    static std::string encode_bulk_string(const BulkString &bulk_string);
+
+    static std::string encode_array(const Array &array);
 };
 
 
