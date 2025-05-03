@@ -11,7 +11,13 @@
 std::optional<RespCodec::Message> RespCodec::decode(const std::string_view data) {
     m_data = data;
 
-    return decode_next();
+    std::optional<Message> message = decode_next();
+
+    // if we have not consumed all the input
+    if (m_position != m_data.size()) {
+        return std::nullopt;
+    }
+    return message;
 }
 
 std::optional<RespCodec::Message> RespCodec::decode_next() {
@@ -29,14 +35,13 @@ std::optional<RespCodec::Message> RespCodec::decode_next() {
         case '$':
             message = decode_bulk_string();
             break;
+        case '*':
+            message = decode_array();
+            break;
         default:
             message = std::nullopt;
     }
 
-    // if we have not consumed all the input
-    if (m_position != m_data.size()) {
-        return std::nullopt;
-    }
     return message;
 }
 
@@ -168,6 +173,10 @@ std::optional<RespCodec::Array> RespCodec::decode_array() {
             const std::string_view value{m_data.data() + start, m_position - start - 1};
             advance(); // consume newline
 
+            if (value == "-1") {
+                return Array{std::nullopt};
+            }
+
             auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), size);
 
             if (ec != std::errc()) {
@@ -176,5 +185,20 @@ std::optional<RespCodec::Array> RespCodec::decode_array() {
             break;
         }
     }
+
+    std::vector<Message> messages{size};
+    for (size_t i = 0; i < size; ++i) {
+        std::optional message = decode_next();
+
+        if (!message.has_value()) {
+            return std::nullopt;
+        }
+
+        messages[i] = std::move(*message);
+    }
+
+    return Array{std::move(messages)};
 }
+
+
 

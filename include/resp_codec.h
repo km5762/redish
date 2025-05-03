@@ -13,27 +13,37 @@
 class RespCodec {
 public:
     struct SimpleString {
-        std::string value{};
+        std::string value;
+
+        bool operator==(const SimpleString &) const = default;
     };
 
     struct SimpleError {
-        std::string prefix{};
-        std::string value{};
+        std::string prefix;
+        std::string value;
+
+        bool operator==(const SimpleError &) const = default;
     };
 
     struct Integer {
-        int value{};
+        int value;
+
+        bool operator==(const Integer &) const = default;
     };
 
     struct BulkString {
-        std::optional<std::string> value{};
+        std::optional<std::string> value;
+
+        bool operator==(const BulkString &) const = default;
     };
 
     struct Array;
     using Message = std::variant<SimpleString, SimpleError, Integer, BulkString, Array>;
 
     struct Array {
-        std::vector<Message> value{};
+        std::optional<std::vector<Message> > value;
+
+        bool operator==(const Array &) const = default;
     };
 
     std::optional<Message> decode(std::string_view data);
@@ -44,9 +54,9 @@ private:
 
     char advance() { return m_data[m_position++]; }
 
-    char peek() const { return m_data[m_position]; }
+    [[nodiscard]] char peek() const { return m_data[m_position]; }
 
-    bool at_data_end() const { return m_position >= m_data.size(); }
+    [[nodiscard]] bool at_data_end() const { return m_position >= m_data.size(); }
 
     std::optional<Message> decode_next();
 

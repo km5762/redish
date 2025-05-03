@@ -147,3 +147,123 @@ TEST_F(RespCodecTest, BulkStringNoCrlf) {
     const auto output = m_codec.decode("$5\r\nhello");
     EXPECT_EQ(std::nullopt, output);
 }
+
+TEST_F(RespCodecTest, ArrayEmpty) {
+    const auto output = m_codec.decode("*0\r\n");
+    EXPECT_EQ(std::optional{std::vector<RespCodec::Message>{}},
+              std::get<RespCodec::Array>(*output).value);
+}
+
+TEST_F(RespCodecTest, ArrayNull) {
+    const auto output = m_codec.decode("*-1\r\n");
+    EXPECT_EQ(std::nullopt, std::get<RespCodec::Array>(*output).value);
+}
+
+TEST_F(RespCodecTest, ArraySimpleStrings) {
+    const auto output = m_codec.decode("*2\r\n+OK\r\n+PONG\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::SimpleString{"OK"},
+            RespCodec::SimpleString{"PONG"}
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+TEST_F(RespCodecTest, ArraySimpleErrors) {
+    const auto output = m_codec.decode("*2\r\n-ERR one\r\n-ERR two\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::SimpleError{"ERR", "one"},
+            RespCodec::SimpleError{"ERR", "two"},
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+
+TEST_F(RespCodecTest, ArrayIntegers) {
+    const auto output = m_codec.decode("*3\r\n:1\r\n:42\r\n:-5\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::Integer{1},
+            RespCodec::Integer{42},
+            RespCodec::Integer{-5},
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+TEST_F(RespCodecTest, ArrayBulkStrings) {
+    const auto output = m_codec.decode("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::BulkString{"foo"},
+            RespCodec::BulkString{"bar"},
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+TEST_F(RespCodecTest, ArrayNestedArrays) {
+    const auto output = m_codec.decode("*2\r\n*2\r\n+Hello\r\n+World\r\n*1\r\n:100\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::Array{
+                std::vector<RespCodec::Message>{
+                    RespCodec::SimpleString{"Hello"},
+                    RespCodec::SimpleString{"World"},
+                }
+            },
+            RespCodec::Array{
+                std::vector<RespCodec::Message>{
+                    RespCodec::Integer{100},
+                }
+            },
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+
+TEST_F(RespCodecTest, ArrayMixedVariants) {
+    const auto output = m_codec.decode("*4\r\n+Hi\r\n:123\r\n$5\r\nhello\r\n-Oops\r\n");
+    const auto expected = RespCodec::Array{
+        std::vector<RespCodec::Message>{
+            RespCodec::SimpleString{"Hi"},
+            RespCodec::Integer{123},
+            RespCodec::BulkString{"hello"},
+            RespCodec::SimpleError{"Oops"},
+        }
+    };
+
+    EXPECT_EQ(
+        expected, std::get<RespCodec::Array>(*output)
+    );
+}
+
+TEST_F(RespCodecTest, ArrayInvalidVariant) {
+    const auto output = m_codec.decode("*4\r\n+Hi\r\n:123\r\n");
+
+    EXPECT_EQ(
+        std::nullopt, output
+    );
+}
+
+
+
