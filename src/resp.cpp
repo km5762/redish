@@ -103,27 +103,27 @@ namespace {
     }
 
     void encode_simple_string(const resp::SimpleString &simple_string, std::ostream &stream) {
-        stream << std::format("+{}\r\n", simple_string.value) << std::flush;
+        stream << std::format("+{}\r\n", simple_string.value);
     }
 
     void encode_simple_error(const resp::SimpleError &simple_error, std::ostream &stream) {
-        stream << std::format("-{}\r\n", simple_error.value) << std::flush;
+        stream << std::format("-{}\r\n", simple_error.value);
     }
 
     void encode_integer(const resp::Integer &integer, std::ostream &stream) {
-        stream << std::format(":{}\r\n", integer.value) << std::flush;
+        stream << std::format(":{}\r\n", integer.value);
     }
 
     void encode_bulk_string(const resp::BulkString &bulk_string, std::ostream &stream) {
         if (!bulk_string.value.has_value()) {
-            stream << "$-1\r\n" << std::flush;
+            stream << "$-1\r\n";
         }
-        stream << std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value) << std::flush;
+        stream << std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value);
     }
 
     void encode_array(const resp::Array &array, std::ostream &stream) {
         if (!array.value.has_value()) {
-            stream << "*-1\r\n" << std::flush;
+            stream << "*-1\r\n";
         }
 
         std::string encoded{std::format("*{}\r\n", array.value->size())};
@@ -178,6 +178,7 @@ namespace resp {
                 static_assert(always_false<T>, "Non-exhaustive visitor");
             }
         }, message);
+        stream.flush();
     }
 }
 
