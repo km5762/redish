@@ -3,49 +3,49 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-TEST(RespCodecTest, SimpleStringHappyPath) {
+TEST(Resp, SimpleStringHappyPath) {
     std::istringstream input("+OK\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ("OK", std::get<resp::SimpleString>(*output).value);
 }
 
-TEST(RespCodecTest, SimpleStringEmptyInvalidString) {
+TEST(Resp, SimpleStringEmptyInvalidString) {
     std::istringstream input("");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, SimpleStringNoCrlf) {
+TEST(Resp, SimpleStringNoCrlf) {
     std::istringstream input("+");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, SimpleStringCrNoLf) {
+TEST(Resp, SimpleStringCrNoLf) {
     std::istringstream input("+\r");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, SimpleStringEmptyValidString) {
+TEST(Resp, SimpleStringEmptyValidString) {
     std::istringstream input("+\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ("", std::get<resp::SimpleString>(*output).value);
 }
 
-TEST(RespCodecTest, SimpleStringTrailingInput) {
+TEST(Resp, SimpleStringTrailingInput) {
     std::istringstream input("+\r\nTRAILING");
     const auto output = resp::decode(input);
     EXPECT_EQ("", std::get<resp::SimpleString>(*output).value);
 }
 
-TEST(RespCodecTest, SimpleStringUnexpectedPrefix) {
+TEST(Resp, SimpleStringUnexpectedPrefix) {
     std::istringstream input("UNEXPECTED+ERR\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, SimpleStringMultipleMessagesNotAllowed) {
+TEST(Resp, SimpleStringMultipleMessagesNotAllowed) {
     std::istringstream input("+OK\r\n+MORE\r\n");
     const auto a = resp::decode(input);
     const auto b = resp::decode(input);
@@ -53,127 +53,127 @@ TEST(RespCodecTest, SimpleStringMultipleMessagesNotAllowed) {
     EXPECT_EQ("MORE", std::get<resp::SimpleString>(*b).value);
 }
 
-TEST(RespCodecTest, SimpleErrorEmpty) {
+TEST(Resp, SimpleErrorEmpty) {
     std::istringstream input("-\r\n");
     const auto output = resp::decode(input);
     const auto value = std::get<resp::SimpleError>(*output).value;
     EXPECT_EQ("", value);
 }
 
-TEST(RespCodecTest, SimpleErrorEmptyPrefix) {
+TEST(Resp, SimpleErrorEmptyPrefix) {
     std::istringstream input("- value\r\n");
     const auto output = resp::decode(input);
     const auto value = std::get<resp::SimpleError>(*output).value;
     EXPECT_EQ(" value", value);
 }
 
-TEST(RespCodecTest, SimpleErrorEmptyValue) {
+TEST(Resp, SimpleErrorEmptyValue) {
     std::istringstream input("-PREFIX\r\n");
     const auto output = resp::decode(input);
     const auto value = std::get<resp::SimpleError>(*output).value;
     EXPECT_EQ("PREFIX", value);
 }
 
-TEST(RespCodecTest, SimpleErrorHappyPath) {
+TEST(Resp, SimpleErrorHappyPath) {
     std::istringstream input("-PREFIX value\r\n");
     const auto output = resp::decode(input);
     const auto value = std::get<resp::SimpleError>(*output).value;
     EXPECT_EQ("PREFIX value", value);
 }
 
-TEST(RespCodecTest, SimpleErrorEmptyValueWithSpaceAfterPrefix) {
+TEST(Resp, SimpleErrorEmptyValueWithSpaceAfterPrefix) {
     std::istringstream input("-PREFIX \r\n");
     const auto output = resp::decode(input);
     const auto value = std::get<resp::SimpleError>(*output).value;
     EXPECT_EQ("PREFIX ", value);
 }
 
-TEST(RespCodecTest, SimpleErrorNoCrlf) {
+TEST(Resp, SimpleErrorNoCrlf) {
     std::istringstream input("-PREFIX");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, SimpleErrorCrNoLf) {
+TEST(Resp, SimpleErrorCrNoLf) {
     std::istringstream input("-PREFIX\r");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, IntegerNoSign) {
+TEST(Resp, IntegerNoSign) {
     std::istringstream input(":0\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(0, std::get<resp::Integer>(*output).value);
 }
 
-TEST(RespCodecTest, IntegerWithPlus) {
+TEST(Resp, IntegerWithPlus) {
     std::istringstream input(":+1\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(1, std::get<resp::Integer>(*output).value);
 }
 
-TEST(RespCodecTest, IntegerWithMinus) {
+TEST(Resp, IntegerWithMinus) {
     std::istringstream input(":-1\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(-1, std::get<resp::Integer>(*output).value);
 }
 
-TEST(RespCodecTest, IntegerEmptyWithPlus) {
+TEST(Resp, IntegerEmptyWithPlus) {
     std::istringstream input(":+\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, IntegerEmptyWithMinus) {
+TEST(Resp, IntegerEmptyWithMinus) {
     std::istringstream input(":-\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, IntegerEmpty) {
+TEST(Resp, IntegerEmpty) {
     std::istringstream input(":\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, BulkStringHappyPath) {
+TEST(Resp, BulkStringHappyPath) {
     std::istringstream input("$5\r\nhello\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ("hello", std::get<resp::BulkString>(*output).value.value());
 }
 
-TEST(RespCodecTest, BulkStringNull) {
+TEST(Resp, BulkStringNull) {
     std::istringstream input("$-1\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, std::get<resp::BulkString>(*output).value);
 }
 
-TEST(RespCodecTest, BulkStringEmpty) {
+TEST(Resp, BulkStringEmpty) {
     std::istringstream input("$0\r\n\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ("", std::get<resp::BulkString>(*output).value);
 }
 
-TEST(RespCodecTest, BulkStringNoCrlf) {
+TEST(Resp, BulkStringNoCrlf) {
     std::istringstream input("$5\r\nhello");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, output);
 }
 
-TEST(RespCodecTest, ArrayEmpty) {
+TEST(Resp, ArrayEmpty) {
     std::istringstream input("*0\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::optional{std::vector<resp::Message>{}},
               std::get<resp::Array>(*output).value);
 }
 
-TEST(RespCodecTest, ArrayNull) {
+TEST(Resp, ArrayNull) {
     std::istringstream input("*-1\r\n");
     const auto output = resp::decode(input);
     EXPECT_EQ(std::nullopt, std::get<resp::Array>(*output).value);
 }
 
-TEST(RespCodecTest, ArraySimpleStrings) {
+TEST(Resp, ArraySimpleStrings) {
     std::istringstream input("*2\r\n+OK\r\n+PONG\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -188,7 +188,7 @@ TEST(RespCodecTest, ArraySimpleStrings) {
     );
 }
 
-TEST(RespCodecTest, ArraySimpleErrors) {
+TEST(Resp, ArraySimpleErrors) {
     std::istringstream input("*2\r\n-ERR one\r\n-ERR two\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -203,7 +203,7 @@ TEST(RespCodecTest, ArraySimpleErrors) {
     );
 }
 
-TEST(RespCodecTest, ArrayIntegers) {
+TEST(Resp, ArrayIntegers) {
     std::istringstream input("*3\r\n:1\r\n:42\r\n:-5\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -219,7 +219,7 @@ TEST(RespCodecTest, ArrayIntegers) {
     );
 }
 
-TEST(RespCodecTest, ArrayBulkStrings) {
+TEST(Resp, ArrayBulkStrings) {
     std::istringstream input("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -234,7 +234,7 @@ TEST(RespCodecTest, ArrayBulkStrings) {
     );
 }
 
-TEST(RespCodecTest, ArrayNestedArrays) {
+TEST(Resp, ArrayNestedArrays) {
     std::istringstream input("*2\r\n*2\r\n+Hello\r\n+World\r\n*1\r\n:100\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -258,7 +258,7 @@ TEST(RespCodecTest, ArrayNestedArrays) {
     );
 }
 
-TEST(RespCodecTest, ArrayMixedVariants) {
+TEST(Resp, ArrayMixedVariants) {
     std::istringstream input("*4\r\n+Hi\r\n:123\r\n$5\r\nhello\r\n-Oops\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
@@ -275,7 +275,7 @@ TEST(RespCodecTest, ArrayMixedVariants) {
     );
 }
 
-TEST(RespCodecTest, ArrayInvalidVariant) {
+TEST(Resp, ArrayInvalidVariant) {
     std::istringstream input("*4\r\n+Hi\r\n:123\r\n");
     const auto output = resp::decode(input);
 

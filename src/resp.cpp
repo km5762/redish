@@ -102,37 +102,35 @@ namespace {
         return std::nullopt;
     }
 
-    std::string encode_simple_string(const resp::SimpleString &simple_string) {
-        return std::format("+{}\r\n", simple_string.value);
+    void encode_simple_string(const resp::SimpleString &simple_string, std::ostream &stream) {
+        stream << std::format("+{}\r\n", simple_string.value) << std::flush;
     }
 
-    std::string encode_simple_error(const resp::SimpleError &simple_error) {
-        return std::format("-{}\r\n", simple_error.value);
+    void encode_simple_error(const resp::SimpleError &simple_error, std::ostream &stream) {
+        stream << std::format("-{}\r\n", simple_error.value) << std::flush;
     }
 
-    std::string encode_integer(const resp::Integer &integer) {
-        return std::format(":{}\r\n", integer.value);
+    void encode_integer(const resp::Integer &integer, std::ostream &stream) {
+        stream << std::format(":{}\r\n", integer.value) << std::flush;
     }
 
-    std::string encode_bulk_string(const resp::BulkString &bulk_string) {
+    void encode_bulk_string(const resp::BulkString &bulk_string, std::ostream &stream) {
         if (!bulk_string.value.has_value()) {
-            return "$-1\r\n";
+            stream << "$-1\r\n" << std::flush;
         }
-        return std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value);
+        stream << std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value) << std::flush;
     }
 
-    std::string encode_array(const resp::Array &array) {
+    void encode_array(const resp::Array &array, std::ostream &stream) {
         if (!array.value.has_value()) {
-            return "*-1\r\n";
+            stream << "*-1\r\n" << std::flush;
         }
 
         std::string encoded{std::format("*{}\r\n", array.value->size())};
 
         for (const resp::Message &message: *array.value) {
-            encoded += encode(message);
+            encode(message, stream);
         }
-
-        return encoded;
     }
 }
 
@@ -162,25 +160,23 @@ namespace resp {
         return message;
     }
 
-    std::string encode(const Message &message) {
-        return std::visit([](auto &&msg) -> std::string {
-            using T = std::decay_t<decltype(msg)>;
+    void encode(const Message &message, std::ostream &stream) {
+        std::visit([&stream]<typename T0>(T0 &&msg) {
+            using T = std::decay_t<T0>;
 
             if constexpr (std::is_same_v<T, SimpleString>) {
-                return encode_simple_string(msg);
+                encode_simple_string(msg, stream);
             } else if constexpr (std::is_same_v<T, SimpleError>) {
-                return encode_simple_error(msg);
+                encode_simple_error(msg, stream);
             } else if constexpr (std::is_same_v<T, Integer>) {
-                return encode_integer(msg);
+                encode_integer(msg, stream);
             } else if constexpr (std::is_same_v<T, BulkString>) {
-                return encode_bulk_string(msg);
+                encode_bulk_string(msg, stream);
             } else if constexpr (std::is_same_v<T, Array>) {
-                return encode_array(msg);
+                encode_array(msg, stream);
             } else {
                 static_assert(always_false<T>, "Non-exhaustive visitor");
             }
-
-            return {};
         }, message);
     }
 }

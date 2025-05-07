@@ -50,7 +50,7 @@ namespace resp {
 
     std::optional<Message> decode(std::istream &stream);
 
-    std::string encode(const Message &message);
+    void encode(const Message &message, std::ostream &stream);
 };
 
 
