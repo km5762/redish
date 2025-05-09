@@ -19,6 +19,10 @@ namespace resp {
         std::string value;
 
         bool operator==(const SimpleString &) const = default;
+
+        friend std::ostream &operator<<(std::ostream &os, const SimpleString &str) {
+            return os << "SimpleString{\"" << str.value << "\"}";
+        }
     };
 
     struct SimpleError {
