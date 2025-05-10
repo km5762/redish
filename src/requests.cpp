@@ -4,6 +4,7 @@
 
 #include "requests.h"
 
+#include <algorithm>
 #include <cassert>
 #include <format>
 
@@ -31,13 +32,13 @@ namespace {
             return;
         }
 
-        const auto key = std::get_if<resp::BulkString>(&tokens[2]);
+        const auto key = std::get_if<resp::BulkString>(&tokens[1]);
         if (key == nullptr || !key->value.has_value()) {
             encode(resp::SimpleError{"ERR key must be non-null bulk string"}, stream);
             return;
         }
 
-        const auto value = std::get_if<resp::BulkString>(&tokens[3]);
+        const auto value = std::get_if<resp::BulkString>(&tokens[2]);
         if (value == nullptr || !value->value.has_value()) {
             encode(resp::SimpleError{"ERR value must be non-null bulk string"}, stream);
             return;
@@ -48,14 +49,28 @@ namespace {
         encode(resp::SimpleString{"OK"}, stream);
     }
 
-    void handle_get(const std::vector<resp::Message> &tokens, std::ostream &stream) {
+    void handle_get(const std::vector<resp::Message> &tokens, std::ostream &stream, Dictionary &dictionary) {
         if (tokens.size() < 2) {
-            encode(resp::SimpleError{"ERR wrong number of arguments for 'get' command"}, stream);
-            return;
+            return encode(resp::SimpleError{"ERR wrong number of arguments for 'get' command"}, stream);
         }
 
-        encode(resp::BulkString{std::nullopt}, stream);
+        const auto key = std::get_if<resp::BulkString>(&tokens[1]);
+        if (!key || !key->value) {
+            return encode(resp::SimpleError{"ERR key must be non-null bulk string"}, stream);
+        }
+
+        const auto value = dictionary.get(*key->value);
+        if (!value) {
+            return encode(resp::BulkString{std::nullopt}, stream);
+        }
+
+        if (!std::holds_alternative<resp::BulkString>((*value).get())) {
+            return encode(resp::SimpleError{"ERR non bulk-string value"}, stream);
+        }
+
+        encode(*value, stream);
     }
+
 
     void handle_command(const resp::Array &command, std::ostream &stream, Dictionary &dictionary) {
         const auto &tokens = command.value;
@@ -73,13 +88,17 @@ namespace {
         }
 
 
-        const auto name = *first->value;
+        std::string name{*first->value};
+        std::ranges::transform(name, name.begin(), [](const unsigned char c) {
+            return std::toupper(c);
+        });
+
         if (name == "PING") {
             handle_ping(*tokens, stream);
         } else if (name == "SET") {
             handle_set(*tokens, stream, dictionary);
         } else if (name == "GET") {
-            handle_get(*tokens, stream);
+            handle_get(*tokens, stream, dictionary);
         } else {
             encode(resp::SimpleError{std::format("ERR unknown command '{}'", name)}, stream);
         }

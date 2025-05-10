@@ -117,6 +117,7 @@ namespace {
     void encode_bulk_string(const resp::BulkString &bulk_string, std::ostream &stream) {
         if (!bulk_string.value.has_value()) {
             stream << "$-1\r\n";
+            return;
         }
         stream << std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value);
     }
@@ -124,6 +125,7 @@ namespace {
     void encode_array(const resp::Array &array, std::ostream &stream) {
         if (!array.value.has_value()) {
             stream << "*-1\r\n";
+            return;
         }
 
         std::string encoded{std::format("*{}\r\n", array.value->size())};
