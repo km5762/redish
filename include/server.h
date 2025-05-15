@@ -10,30 +10,19 @@
 #include <string_view>
 #include <unistd.h>
 
+#include "connection.h"
 #include "dictionary.h"
 
 class Server {
 public:
-    [[noreturn]] void start(std::string_view port = DEFAULT_PORT, int backlog_size = DEFAULT_BACKLOG_SIZE);
+    [[noreturn]] void start(std::string_view port = "6379", int backlog_size = 128);
 
     ~Server() { close(m_socket); }
 
 private:
-    static constexpr int DEFAULT_BACKLOG_SIZE{128};
-    static constexpr std::string_view DEFAULT_PORT{"6379"};
-
     int m_socket{};
+    std::unordered_map<int, Connection> m_connections{};
     Dictionary m_dictionary{};
-
-    void handle_ping(const std::vector<resp::Message> &tokens, std::ostream &stream);
-
-    void handle_set(const std::vector<resp::Message> &tokens, std::ostream &stream);
-
-    void handle_get(const std::vector<resp::Message> &tokens, std::ostream &stream);
-
-    void handle_command(const resp::Array &command, std::ostream &stream);
-
-    void handle_client(int socket);
 };
 
 

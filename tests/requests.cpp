@@ -16,13 +16,13 @@ protected:
     Dictionary m_dictionary{};
     std::stringstream m_stream{};
 
-    std::optional<Message> handle(const Message &request) {
+    std::optional<Value> handle(const Value &request) {
         requests::handle(request, m_stream, m_dictionary);
         return resp::decode(m_stream);
     }
 
-    static resp::Array make_array(std::initializer_list<resp::Message> elements) {
-        return resp::Array{std::optional<std::vector<resp::Message> >{elements}};
+    static resp::Array make_array(std::initializer_list<resp::Value> elements) {
+        return resp::Array{std::optional<std::vector<resp::Value> >{elements}};
     }
 };
 

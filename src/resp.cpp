@@ -1,191 +1,70 @@
-//
-// Created by d4wgr on 4/23/2025.
-//
-
 #include "resp.h"
-
 #include <charconv>
-#include <format>
-#include <iostream>
-
-namespace {
-    std::optional<std::string> decode_string(std::istream &stream, int length = -1) {
-        std::string value{};
-        if (length > 0) {
-            value.reserve(length);
-        }
-        if (std::getline(stream, value, '\r')) {
-            if (stream.peek() == '\n') {
-                stream.ignore(); // consume '\n'
-                return std::move(value);
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::optional<resp::SimpleString> decode_simple_string(std::istream &stream) {
-        if (auto value = decode_string(stream)) {
-            return resp::SimpleString{std::move(*value)};
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<resp::SimpleError> decode_simple_error(std::istream &stream) {
-        if (auto value = decode_string(stream)) {
-            return resp::SimpleError{std::move(*value)};
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<resp::Integer> decode_integer(std::istream &stream) {
-        if (const auto value = decode_string(stream)) {
-            try {
-                return resp::Integer{std::stoi(*value)};
-            } catch (...) {
-                return std::nullopt;
-            }
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<resp::BulkString> decode_bulk_string(std::istream &stream) {
-        if (const auto length_string = decode_string(stream)) {
-            try {
-                const int length = std::stoi(*length_string);
-
-                if (length == -1) {
-                    return resp::BulkString{std::nullopt};
-                }
-
-                if (length < 0) {
-                    return std::nullopt;
-                }
-
-                if (auto value = decode_string(stream, length)) {
-                    return resp::BulkString{std::move(*value)};
-                }
-            } catch (...) {
-                return std::nullopt;
-            }
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<resp::Array> decode_array(std::istream &stream) {
-        if (const auto length_string = decode_string(stream)) {
-            try {
-                const int length = std::stoi(*length_string);
-
-                if (length == -1) {
-                    return resp::Array{std::nullopt};
-                }
-
-                std::vector<resp::Message> messages{static_cast<size_t>(length)};
-                for (int i{0}; i < length; ++i) {
-                    if (auto message = resp::decode(stream)) {
-                        messages[i] = std::move(*message);
-                    } else {
-                        return std::nullopt;
-                    }
-                }
-
-                return resp::Array{std::move(messages)};
-            } catch (...) {
-                return std::nullopt;
-            }
-        }
-
-        return std::nullopt;
-    }
-
-    void encode_simple_string(const resp::SimpleString &simple_string, std::ostream &stream) {
-        stream << std::format("+{}\r\n", simple_string.value);
-    }
-
-    void encode_simple_error(const resp::SimpleError &simple_error, std::ostream &stream) {
-        stream << std::format("-{}\r\n", simple_error.value);
-    }
-
-    void encode_integer(const resp::Integer &integer, std::ostream &stream) {
-        stream << std::format(":{}\r\n", integer.value);
-    }
-
-    void encode_bulk_string(const resp::BulkString &bulk_string, std::ostream &stream) {
-        if (!bulk_string.value.has_value()) {
-            stream << "$-1\r\n";
-            return;
-        }
-        stream << std::format("${}\r\n{}\r\n", bulk_string.value->size(), *bulk_string.value);
-    }
-
-    void encode_array(const resp::Array &array, std::ostream &stream) {
-        if (!array.value.has_value()) {
-            stream << "*-1\r\n";
-            return;
-        }
-
-        std::string encoded{std::format("*{}\r\n", array.value->size())};
-
-        for (const resp::Message &message: *array.value) {
-            encode(message, stream);
-        }
-    }
-}
 
 namespace resp {
-    std::optional<Message> decode(std::istream &stream) {
-        std::optional<Message> message{};
-        switch (stream.get()) {
-            case '+':
-                message = decode_simple_string(stream);
-                break;
-            case '-':
-                message = decode_simple_error(stream);
-                break;
-            case ':':
-                message = decode_integer(stream);
-                break;
-            case '$':
-                message = decode_bulk_string(stream);
-                break;
-            case '*':
-                message = decode_array(stream);
-                break;
-            default:
-                message = std::nullopt;
-        }
-
-        return message;
+    void append(std::vector<char> &out, const std::string_view str) {
+        out.insert(out.end(), str.begin(), str.end());
     }
 
-    void encode(const Message &message, std::ostream &stream) {
-        std::visit([&stream]<typename T0>(T0 &&msg) {
-            using T = std::decay_t<T0>;
+    void append_crlf(std::vector<char> &out) {
+        out.push_back('\r');
+        out.push_back('\n');
+    }
 
-            if constexpr (std::is_same_v<T, SimpleString>) {
-                encode_simple_string(msg, stream);
-            } else if constexpr (std::is_same_v<T, SimpleError>) {
-                encode_simple_error(msg, stream);
-            } else if constexpr (std::is_same_v<T, Integer>) {
-                encode_integer(msg, stream);
-            } else if constexpr (std::is_same_v<T, BulkString>) {
-                encode_bulk_string(msg, stream);
-            } else if constexpr (std::is_same_v<T, Array>) {
-                encode_array(msg, stream);
-            } else {
-                static_assert(always_false<T>, "Non-exhaustive visitor");
-            }
-        }, message);
-        stream.flush();
+    void append_int(std::vector<char> &out, const int64_t val) {
+        char buf[21]; // enough for 64-bit int + sign
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), val);
+        out.insert(out.end(), buf, ptr);
+    }
+
+    void serialize(const SimpleString &s, std::vector<char> &out) {
+        out.push_back('+');
+        append(out, s.value);
+        append_crlf(out);
+    }
+
+    void serialize(const SimpleError &e, std::vector<char> &out) {
+        out.push_back('-');
+        append(out, e.prefix);
+        append(out, " ");
+        append(out, e.value);
+        append_crlf(out);
+    }
+
+    void serialize(const Integer &i, std::vector<char> &out) {
+        out.push_back(':');
+        append_int(out, i.value);
+        append_crlf(out);
+    }
+
+    void serialize(const BulkString &b, std::vector<char> &out) {
+        if (!b.value) {
+            append(out, "$-1\r\n");
+            return;
+        }
+        append(out, "$");
+        append_int(out, b.value->size());
+        append_crlf(out);
+        append(out, *b.value);
+        append_crlf(out);
+    }
+
+    void serialize(const Array &a, std::vector<char> &out) {
+        if (!a.value) {
+            append(out, "*-1\r\n");
+            return;
+        }
+        append(out, "*");
+        append_int(out, a.value->size());
+        append_crlf(out);
+        for (const auto &v: *a.value) {
+            serialize(v, out);
+        }
+    }
+
+    void serialize(const Value &value, std::vector<char> &out) {
+        std::visit([&out](auto &&arg) {
+            serialize(arg, out);
+        }, value);
     }
 }
-
-
-
-
-
-

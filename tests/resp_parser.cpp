@@ -1,4 +1,4 @@
-#include "resp.h"
+#include "resp_parser.h"
 
 #include <gtest/gtest.h>
 #include <sstream>
@@ -163,7 +163,7 @@ TEST(Resp, BulkStringNoCrlf) {
 TEST(Resp, ArrayEmpty) {
     std::istringstream input("*0\r\n");
     const auto output = resp::decode(input);
-    EXPECT_EQ(std::optional{std::vector<resp::Message>{}},
+    EXPECT_EQ(std::optional{std::vector<resp::Value>{}},
               std::get<resp::Array>(*output).value);
 }
 
@@ -177,7 +177,7 @@ TEST(Resp, ArraySimpleStrings) {
     std::istringstream input("*2\r\n+OK\r\n+PONG\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::SimpleString{"OK"},
             resp::SimpleString{"PONG"}
         }
@@ -192,7 +192,7 @@ TEST(Resp, ArraySimpleErrors) {
     std::istringstream input("*2\r\n-ERR one\r\n-ERR two\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::SimpleError{"ERR one"},
             resp::SimpleError{"ERR two"},
         }
@@ -207,7 +207,7 @@ TEST(Resp, ArrayIntegers) {
     std::istringstream input("*3\r\n:1\r\n:42\r\n:-5\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::Integer{1},
             resp::Integer{42},
             resp::Integer{-5},
@@ -223,7 +223,7 @@ TEST(Resp, ArrayBulkStrings) {
     std::istringstream input("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::BulkString{"foo"},
             resp::BulkString{"bar"},
         }
@@ -238,15 +238,15 @@ TEST(Resp, ArrayNestedArrays) {
     std::istringstream input("*2\r\n*2\r\n+Hello\r\n+World\r\n*1\r\n:100\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::Array{
-                std::vector<resp::Message>{
+                std::vector<resp::Value>{
                     resp::SimpleString{"Hello"},
                     resp::SimpleString{"World"},
                 }
             },
             resp::Array{
-                std::vector<resp::Message>{
+                std::vector<resp::Value>{
                     resp::Integer{100},
                 }
             },
@@ -262,7 +262,7 @@ TEST(Resp, ArrayMixedVariants) {
     std::istringstream input("*4\r\n+Hi\r\n:123\r\n$5\r\nhello\r\n-Oops\r\n");
     const auto output = resp::decode(input);
     const auto expected = resp::Array{
-        std::vector<resp::Message>{
+        std::vector<resp::Value>{
             resp::SimpleString{"Hi"},
             resp::Integer{123},
             resp::BulkString{"hello"},

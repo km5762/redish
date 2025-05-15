@@ -1,31 +1,24 @@
 //
-// Created by d4wgr on 4/23/2025.
+// Created by d4wgr on 5/12/2025.
 //
 
 #ifndef RESP_H
 #define RESP_H
 
-#include <istream>
 #include <optional>
 #include <string>
 #include <variant>
 #include <vector>
-
-template<typename T>
-inline constexpr bool always_false = false;
 
 namespace resp {
     struct SimpleString {
         std::string value;
 
         bool operator==(const SimpleString &) const = default;
-
-        friend std::ostream &operator<<(std::ostream &os, const SimpleString &str) {
-            return os << "SimpleString{\"" << str.value << "\"}";
-        }
     };
 
     struct SimpleError {
+        std::string prefix;
         std::string value;
 
         bool operator==(const SimpleError &) const = default;
@@ -44,18 +37,15 @@ namespace resp {
     };
 
     struct Array;
-    using Message = std::variant<SimpleString, SimpleError, Integer, BulkString, Array>;
+    using Value = std::variant<SimpleString, SimpleError, Integer, BulkString, Array>;
 
     struct Array {
-        std::optional<std::vector<Message> > value;
+        std::optional<std::vector<Value> > value;
 
         bool operator==(const Array &) const = default;
     };
 
-    std::optional<Message> decode(std::istream &stream);
-
-    void encode(const Message &message, std::ostream &stream);
-};
-
+    void serialize(const Value &value, std::vector<char> &out);
+}
 
 #endif //RESP_H

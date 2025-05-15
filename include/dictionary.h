@@ -7,20 +7,20 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "resp.h"
+#include "resp_parser.h"
 
 
 class Dictionary {
 public:
-    std::optional<std::reference_wrapper<resp::Message> > get(const std::string &key);
+    std::optional<std::reference_wrapper<resp::Value> > get(const std::string &key);
 
-    void set(const std::string &key, const resp::Message &value);
+    void set(const std::string &key, const resp::Value &value);
 
-    std::optional<std::reference_wrapper<resp::Message> > set_and_get(const std::string &key,
-                                                                      const resp::Message &value);
+    std::optional<std::reference_wrapper<resp::Value> > set_and_get(const std::string &key,
+                                                                    const resp::Value &value);
 
 private:
-    std::unordered_map<std::string, resp::Message> m_map{};
+    std::unordered_map<std::string, resp::Value> m_map{};
     std::mutex m_mutex{};
 };
 
