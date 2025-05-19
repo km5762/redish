@@ -23,25 +23,25 @@ void Connection::handle(const uint32_t events) {
 }
 
 void Connection::handle_receive() {
-    const ssize_t bytes_received = recv(m_socket, m_read_buffer.data(), buffer_size, 0);
-    if (bytes_received == -1) {
-        // if recv fails for normal reason (read not actually available)
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    while (true) {
+        const ssize_t bytes_received = recv(m_socket, m_read_buffer.data(), buffer_size, 0);
+
+        if (bytes_received == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            // we have fully drained the buffer and there is no longer a read
             return;
         }
-        throw std::system_error(errno, std::system_category(), "Connection::Connection recv");
-    }
 
-    // either the connection was closed gracefully by the client, or the connection is broken in some way
-    if (bytes_received <= 0) {
-        m_event_loop.remove_handler(m_socket);
-        return;
-    }
+        // either the connection was closed gracefully by the client, or the connection is broken in some way
+        if (bytes_received <= 0) {
+            m_event_loop.remove_handler(m_socket);
+            return;
+        }
 
-    m_parser.feed(std::span{m_read_buffer.data(), bytes_received});
+        m_parser.feed(std::span{m_read_buffer.data(), bytes_received});
 
-    for (const resp::Value &value: m_parser.take_values()) {
-        m_request_handler.handle(value, *this);
+        for (const resp::Value &value: m_parser.take_values()) {
+            m_request_handler.handle(value, *this);
+        }
     }
 }
 
