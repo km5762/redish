@@ -65,6 +65,7 @@ void Connection::handle_send() {
     }
 
     m_write_buffer.clear();
+    m_bytes_sent = 0;
     m_event_loop.modify_handler(m_socket, EPOLLIN);
 }
 
