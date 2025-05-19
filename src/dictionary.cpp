@@ -29,3 +29,7 @@ std::optional<std::reference_wrapper<resp::Value> > Dictionary::set_and_get(
     m_map[key] = value;
     return previous;
 }
+
+void Dictionary::flush() {
+    m_map.clear();
+}

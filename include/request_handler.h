@@ -28,6 +28,8 @@ private:
     void handle_set(const std::vector<resp::Value> &tokens, Connection &connection) const;
 
     void handle_get(const std::vector<resp::Value> &tokens, Connection &connection) const;
+
+    void handle_flushdb(const std::vector<resp::Value> &tokens, Connection &connection) const;
 };
 
 

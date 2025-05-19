@@ -44,6 +44,8 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_set(*tokens, connection);
     } else if (name == "GET") {
         handle_get(*tokens, connection);
+    } else if (name == "FLUSHDB") {
+        handle_flushdb(*tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -108,6 +110,11 @@ void RequestHandler::handle_get(const std::vector<resp::Value> &tokens, Connecti
     }
 
     connection.send(*value);
+}
+
+void RequestHandler::handle_flushdb(const std::vector<resp::Value> &tokens, Connection &connection) const {
+    m_dictionary.flush();
+    connection.send(resp::SimpleString{"OK"});
 }
 
 
