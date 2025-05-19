@@ -7,8 +7,6 @@
 #include <chrono>
 
 std::optional<std::reference_wrapper<resp::Value> > Dictionary::get(const std::string &key) {
-    std::lock_guard lock(m_mutex);
-
     if (!m_map.contains(key)) {
         return std::nullopt;
     }
@@ -17,15 +15,11 @@ std::optional<std::reference_wrapper<resp::Value> > Dictionary::get(const std::s
 }
 
 void Dictionary::set(const std::string &key, const resp::Value &value) {
-    std::lock_guard lock(m_mutex);
-
     m_map[key] = value;
 }
 
 std::optional<std::reference_wrapper<resp::Value> > Dictionary::set_and_get(
     const std::string &key, const resp::Value &value) {
-    std::lock_guard lock(m_mutex);
-
     std::optional<std::reference_wrapper<resp::Value> > previous = std::nullopt;
 
     if (m_map.contains(key)) {

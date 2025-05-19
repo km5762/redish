@@ -21,7 +21,6 @@ public:
 
 private:
     std::unordered_map<std::string, resp::Value> m_map{};
-    std::mutex m_mutex{};
 };
 
 
