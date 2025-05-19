@@ -45,6 +45,10 @@ namespace resp {
         bool operator==(const Array &) const = default;
     };
 
+    inline constexpr Value nil{BulkString{std::nullopt}};
+    inline constexpr Value ok{SimpleString{"OK"}};
+    inline constexpr Value syntax_error{SimpleError{"ERR", "syntax error"}};
+
     void serialize(const Value &value, std::vector<char> &out);
 }
 

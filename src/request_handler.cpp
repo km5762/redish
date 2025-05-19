@@ -11,6 +11,17 @@
 #include <fstream>
 #include <algorithm>
 
+namespace {
+    bool ichar_equals(const char a, const char b) {
+        return std::tolower(static_cast<unsigned char>(a)) ==
+               std::tolower(static_cast<unsigned char>(b));
+    }
+
+    bool iequals(std::string_view lhs, std::string_view rhs) {
+        return std::ranges::equal(lhs, rhs, ichar_equals);
+    }
+}
+
 void RequestHandler::handle(const resp::Value &request, Connection &connection) const {
     if (const auto command = std::get_if<resp::Array>(&request)) {
         handle_command(*command, connection);
@@ -21,14 +32,13 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
     const auto &tokens = command.value;
 
     if (!tokens.has_value() || tokens->empty()) {
-        resp::SimpleError error{"ERR Protocol error: invalid multibulk length"};
-        connection.send(error);
+        connection.send(resp::syntax_error);
+        return;
     }
 
     const auto first = std::get_if<resp::BulkString>(&tokens->front());
     if (first == nullptr) {
-        resp::SimpleError error{"ERR Protocol error: missing command name"};
-        connection.send(error);
+        connection.send(resp::syntax_error);
         return;
     }
 
@@ -60,7 +70,7 @@ void RequestHandler::handle_ping(const std::vector<resp::Value> &tokens, Connect
     } else {
         const auto argument = std::get_if<resp::BulkString>(&tokens[1]);
         if (argument == nullptr) {
-            connection.send(resp::SimpleError{"ERR Protocol error: PING argument must be bulk string"});
+            connection.send(resp::syntax_error);
             return;
         }
         connection.send(*argument);
@@ -69,44 +79,97 @@ void RequestHandler::handle_ping(const std::vector<resp::Value> &tokens, Connect
 
 void RequestHandler::handle_set(const std::vector<resp::Value> &tokens, Connection &connection) const {
     if (tokens.size() < 3) {
-        connection.send(resp::SimpleError{"ERR wrong number of arguments for 'set' command"});
+        connection.send(resp::syntax_error);
         return;
     }
 
     const auto key = std::get_if<resp::BulkString>(&tokens[1]);
     if (key == nullptr || !key->value.has_value()) {
-        connection.send(resp::SimpleError{"ERR key must be non-null bulk string"});
+        connection.send(resp::syntax_error);
         return;
     }
 
     const auto value = std::get_if<resp::BulkString>(&tokens[2]);
     if (value == nullptr || !value->value.has_value()) {
-        connection.send(resp::SimpleError{"ERR value must be non-null bulk string"});
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+
+    bool nx{false};
+    bool xx{false};
+    bool get{false};
+
+    for (size_t i{3}; i < tokens.size(); ++i) {
+        const auto option = std::get_if<resp::BulkString>(&tokens[i]);
+
+        if (option == nullptr || !option->value.has_value()) {
+            connection.send(resp::syntax_error);
+            return;
+        }
+
+        if (iequals(*option->value, "NX")) {
+            if (xx) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+            nx = true;
+        } else if (iequals(*option->value, "XX")) {
+            if (nx) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+            xx = true;
+        } else if (iequals(*option->value, "GET")) {
+            get = true;
+        } else {
+            connection.send(resp::syntax_error);
+            return;
+        }
+    }
+
+    const bool contains = m_dictionary.contains(*key->value);
+    if (nx && contains || xx && !contains) {
+        connection.send(resp::nil);
+        return;
+    }
+
+    if (get) {
+        const auto response = m_dictionary.set_and_get(*key->value, *value);
+
+        if (response.has_value() && std::holds_alternative<resp::BulkString>(*response)) {
+            connection.send(*response);
+            return;
+        }
+        connection.send(resp::nil);
         return;
     }
 
     m_dictionary.set(*key->value, *value);
-
-    connection.send(resp::SimpleString{"OK"});
+    connection.send(resp::ok);
 }
 
 void RequestHandler::handle_get(const std::vector<resp::Value> &tokens, Connection &connection) const {
     if (tokens.size() < 2) {
-        return connection.send(resp::SimpleError{"ERR wrong number of arguments for 'get' command"});
+        connection.send(resp::syntax_error);
+        return;
     }
 
     const auto key = std::get_if<resp::BulkString>(&tokens[1]);
     if (!key || !key->value) {
-        return connection.send(resp::SimpleError{"ERR key must be non-null bulk string"});
+        connection.send(resp::syntax_error);
+        return;
     }
 
     const auto value = m_dictionary.get(*key->value);
     if (!value) {
-        return connection.send(resp::BulkString{std::nullopt});
+        connection.send(resp::nil);
+        return;
     }
 
     if (!std::holds_alternative<resp::BulkString>(value->get())) {
-        return connection.send(resp::SimpleError{"ERR non bulk-string value"});
+        connection.send(resp::syntax_error);
+        return;
     }
 
     connection.send(*value);
@@ -114,7 +177,7 @@ void RequestHandler::handle_get(const std::vector<resp::Value> &tokens, Connecti
 
 void RequestHandler::handle_flushdb(const std::vector<resp::Value> &tokens, Connection &connection) const {
     m_dictionary.flush();
-    connection.send(resp::SimpleString{"OK"});
+    connection.send(resp::ok);
 }
 
 

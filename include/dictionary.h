@@ -16,10 +16,12 @@ public:
 
     void set(const std::string &key, const resp::Value &value);
 
-    std::optional<std::reference_wrapper<resp::Value> > set_and_get(const std::string &key,
-                                                                    const resp::Value &value);
+    std::optional<resp::Value> set_and_get(const std::string &key,
+                                           const resp::Value &value);
 
     void flush();
+
+    bool contains(const std::string &key) const;
 
 private:
     std::unordered_map<std::string, resp::Value> m_map{};

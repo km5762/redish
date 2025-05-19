@@ -18,9 +18,9 @@ void Dictionary::set(const std::string &key, const resp::Value &value) {
     m_map[key] = value;
 }
 
-std::optional<std::reference_wrapper<resp::Value> > Dictionary::set_and_get(
+std::optional<resp::Value> Dictionary::set_and_get(
     const std::string &key, const resp::Value &value) {
-    std::optional<std::reference_wrapper<resp::Value> > previous = std::nullopt;
+    std::optional<resp::Value> previous = std::nullopt;
 
     if (m_map.contains(key)) {
         previous = m_map.at(key);
@@ -32,4 +32,8 @@ std::optional<std::reference_wrapper<resp::Value> > Dictionary::set_and_get(
 
 void Dictionary::flush() {
     m_map.clear();
+}
+
+bool Dictionary::contains(const std::string &key) const {
+    return m_map.contains(key);
 }
