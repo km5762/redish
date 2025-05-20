@@ -38,8 +38,18 @@ class Requests(unittest.TestCase):
         self.connection.connect()
         self.send("flushdb")
 
-    def send(self, command, *args):
-        self.connection.send_command(command, *args)
+    def send(self, *args):
+        if len(args) == 1 and isinstance(args[0], str):
+            parts = args[0].split()
+            if not parts:
+                raise ResponseError("Empty command")
+            command, *arguments = parts
+        else:
+            if not args:
+                raise ResponseError("Empty command")
+            command, *arguments = args
+
+        self.connection.send_command(command, *arguments)
         response = self.connection.read_response()
         return response
 
@@ -146,6 +156,18 @@ class Requests(unittest.TestCase):
         self.send("set", "key1", "value")
         self.send("set", "key2", "value")
         self.assertEqual(2, self.send("del", "key1", "key2"))
+
+    def test_incr_nonexistent(self):
+        self.assertEqual(1, self.send("incr key"))
+
+    def test_incr_existing(self):
+        self.send("set key 1")
+        self.assertEqual(2, self.send("incr key"))
+
+    def test_incr_non_numeric(self):
+        self.send("set key value")
+        with self.assertRaises(ResponseError):
+            self.send("incr key")
 
 
 if __name__ == '__main__':

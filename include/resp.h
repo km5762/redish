@@ -25,7 +25,7 @@ namespace resp {
     };
 
     struct Integer {
-        int value;
+        int64_t value;
 
         bool operator==(const Integer &) const = default;
     };

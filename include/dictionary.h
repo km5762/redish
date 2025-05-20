@@ -4,6 +4,7 @@
 
 #ifndef DICTIONARY_H
 #define DICTIONARY_H
+#include <expected>
 #include <mutex>
 #include <unordered_map>
 
@@ -24,9 +25,17 @@ public:
 
     void flush();
 
-    bool exists(const std::string &key) const;
+    bool exists(const std::string &key);
 
     void del(const std::string &key);
+
+    enum class incr_error {
+        non_bulk_string_value,
+        null_bulk_string_value,
+        non_numeric_value,
+    };
+
+    std::expected<int64_t, incr_error> incr(const std::string &key);
 
 private:
     std::unordered_map<std::string, std::pair<resp::Value, std::optional<Timestamp> > > m_map{};

@@ -67,6 +67,8 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_exists(tokens, connection);
     } else if (iequals(name, "DEL")) {
         handle_del(tokens, connection);
+    } else if (iequals(name, "INCR")) {
+        handle_incr(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -254,6 +256,37 @@ void RequestHandler::handle_del(const Tokenizer &tokens, Connection &connection)
     }
 
     connection.send(resp::Integer{count});
+}
+
+void RequestHandler::handle_incr(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() != 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto key = tokens.get_string(1);
+
+    const auto result = m_dictionary.incr(key->data());
+
+    if (!result.has_value()) {
+        switch (result.error()) {
+            case Dictionary::incr_error::non_bulk_string_value:
+                connection.send(resp::SimpleError{"ERR", "cannot increment non-string value"});
+                break;
+            case Dictionary::incr_error::null_bulk_string_value:
+                connection.send(resp::SimpleError{"ERR", "value is nil"});
+                break;
+            case Dictionary::incr_error::non_numeric_value:
+                connection.send(resp::SimpleError{"ERR", "value is not an integer or out of range"});
+                break;
+            default:
+                connection.send(resp::SimpleError{"ERR", "unknown error"});
+                break;
+        }
+        return;
+    }
+
+    connection.send(resp::Integer{result.value()});
 }
 
 
