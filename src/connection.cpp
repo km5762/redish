@@ -37,7 +37,7 @@ void Connection::handle_receive() {
             return;
         }
 
-        m_parser.feed(std::span{m_read_buffer.data(), bytes_received});
+        m_parser.feed(std::span{m_read_buffer.data(), static_cast<size_t>(bytes_received)});
 
         for (const resp::Value &value: m_parser.take_values()) {
             m_request_handler.handle(value, *this);

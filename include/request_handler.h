@@ -31,6 +31,8 @@ private:
     void handle_get(const Tokenizer &tokens, Connection &connection) const;
 
     void handle_flushdb(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_exists(const Tokenizer &tokens, Connection &connection) const;
 };
 
 

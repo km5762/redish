@@ -63,18 +63,21 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_get(tokens, connection);
     } else if (iequals(name, "FLUSHDB")) {
         handle_flushdb(tokens, connection);
+    } else if (iequals(name, "EXISTS")) {
+        handle_exists(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
 }
 
 void RequestHandler::handle_ping(const Tokenizer &tokens, Connection &connection) {
-    resp::Value response;
     if (tokens.size() == 1) {
         connection.send(resp::SimpleString{"PONG"});
     } else if (tokens.size() == 2) {
         const resp::Value &argument = tokens.get_value(1);
         connection.send(argument);
+    } else {
+        connection.send(resp::syntax_error);
     }
 }
 
@@ -116,6 +119,7 @@ void RequestHandler::handle_set(const Tokenizer &tokens, Connection &connection)
             const auto duration = try_parse_positive_int(*tokens.get_string(++i));
             if (!duration.has_value()) {
                 connection.send(resp::syntax_error);
+                return;
             }
             expiry = Clock::now() + std::chrono::seconds(*duration);
         } else if (iequals(option, "PX")) {
@@ -127,6 +131,7 @@ void RequestHandler::handle_set(const Tokenizer &tokens, Connection &connection)
             const auto duration = try_parse_positive_int(*tokens.get_string(++i));
             if (!duration.has_value()) {
                 connection.send(resp::syntax_error);
+                return;
             }
             expiry = Clock::now() + std::chrono::milliseconds(*duration);
         } else if (iequals(option, "EXAT")) {
@@ -138,6 +143,7 @@ void RequestHandler::handle_set(const Tokenizer &tokens, Connection &connection)
             const auto timestamp = try_parse_positive_int(*tokens.get_string(++i));
             if (!timestamp.has_value()) {
                 connection.send(resp::syntax_error);
+                return;
             }
             expiry = Timestamp{std::chrono::seconds(*timestamp)};
         } else if (iequals(option, "PXAT")) {
@@ -149,6 +155,7 @@ void RequestHandler::handle_set(const Tokenizer &tokens, Connection &connection)
             const auto timestamp = try_parse_positive_int(*tokens.get_string(++i));
             if (!timestamp.has_value()) {
                 connection.send(resp::syntax_error);
+                return;
             }
             expiry = Timestamp{std::chrono::milliseconds(*timestamp)};
         } else {
@@ -204,9 +211,30 @@ void RequestHandler::handle_get(const Tokenizer &tokens, Connection &connection)
 void RequestHandler::handle_flushdb(const Tokenizer &tokens, Connection &connection) const {
     if (tokens.size() > 2) {
         connection.send(resp::syntax_error);
+        return;
     }
     m_dictionary.flush();
     connection.send(resp::ok);
 }
+
+void RequestHandler::handle_exists(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() < 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    int count{0};
+    for (size_t i{1}; i < tokens.size(); ++i) {
+        const auto key = tokens.get_string(i);
+
+        if (m_dictionary.exists(key->data())) {
+            ++count;
+        }
+    }
+
+    connection.send(resp::Integer{count});
+}
+
+
 
 

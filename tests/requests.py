@@ -120,6 +120,20 @@ class Requests(unittest.TestCase):
         time.sleep(1.1)
         self.assertEqual(None, self.send("get", "key"))
 
+    def test_exists_does_exist(self):
+        self.send("set", "key", "value")
+        self.assertEqual(1, self.send("exists", "key"))
+
+    def test_exists_does_not_exist(self):
+        self.send("set", "key", "value")
+        self.assertEqual(0, self.send("exists", "key1"))
+
+    def test_exists_multiple(self):
+        self.send("set", "key", "value")
+        self.send("set", "key1", "value")
+        self.send("set", "key2", "value")
+        self.assertEqual(2, self.send("exists", "key1", "key2"))
+
 
 if __name__ == '__main__':
     unittest.main()
