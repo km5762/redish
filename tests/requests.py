@@ -4,7 +4,7 @@ from redis import ResponseError
 from redis.connection import Connection
 
 
-class RedisTest(unittest.TestCase):
+class Requests(unittest.TestCase):
     # @classmethod
     # def setUpClass(cls):
     #     project_root = os.path.abspath(os.path.dirname(__file__))
