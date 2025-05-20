@@ -13,9 +13,8 @@ namespace resp {
     void Parser::feed(const std::span<const char> data) {
         m_buffer.insert(m_buffer.end(), data.begin(), data.end());
 
-        std::optional<Value> value = decode_next();
-
-        if (value.has_value()) {
+        // while we can decode values, decode them
+        while (std::optional<Value> value = decode_next()) {
             m_values.emplace_back(std::move(*value));
             // if we get a successful parse, increment the parsed offset to the new position
             m_parsed = m_position;
@@ -27,10 +26,11 @@ namespace resp {
                 m_parsed = 0;
                 m_position = 0;
             }
-        } else {
-            // otherwise, reset the position back to the last successful parse
-            m_position = m_parsed;
         }
+
+        // if we are left with an incomplete parse, this resets the position to the last successful parse.
+        // otherwise, m_position == m_parsed already, so this does nothing.
+        m_position = m_parsed;
     }
 
     std::vector<Value> Parser::take_values() {
@@ -40,7 +40,12 @@ namespace resp {
     }
 
     std::optional<Value> Parser::decode_next() {
+        if (m_position >= m_buffer.size()) {
+            return std::nullopt;
+        }
+
         std::optional<Value> value{};
+
         switch (advance()) {
             case '+':
                 value = decode_simple_string();
