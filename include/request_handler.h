@@ -8,6 +8,7 @@
 #include "connection.h"
 #include "dictionary.h"
 #include "resp.h"
+#include "tokenizer.h"
 
 class Connection;
 
@@ -23,13 +24,13 @@ private:
 
     void handle_command(const resp::Array &command, Connection &connection) const;
 
-    static void handle_ping(const std::vector<resp::Value> &tokens, Connection &connection);
+    static void handle_ping(const Tokenizer &tokens, Connection &connection);
 
-    void handle_set(const std::vector<resp::Value> &tokens, Connection &connection) const;
+    void handle_set(const Tokenizer &tokens, Connection &connection) const;
 
-    void handle_get(const std::vector<resp::Value> &tokens, Connection &connection) const;
+    void handle_get(const Tokenizer &tokens, Connection &connection) const;
 
-    void handle_flushdb(const std::vector<resp::Value> &tokens, Connection &connection) const;
+    void handle_flushdb(const Tokenizer &tokens, Connection &connection) const;
 };
 
 

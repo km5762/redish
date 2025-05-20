@@ -8,8 +8,8 @@
 
 #include <cassert>
 #include <format>
-#include <fstream>
-#include <algorithm>
+
+#include "tokenizer.h"
 
 namespace {
     bool ichar_equals(const char a, const char b) {
@@ -20,6 +20,16 @@ namespace {
     bool iequals(std::string_view lhs, std::string_view rhs) {
         return std::ranges::equal(lhs, rhs, ichar_equals);
     }
+
+    std::optional<int64_t> try_parse_positive_int(std::string_view str) {
+        int64_t result;
+        auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
+
+        if (ec == std::errc() && ptr == str.data() + str.size() && result > 0) {
+            return result;
+        }
+        return std::nullopt;
+    }
 }
 
 void RequestHandler::handle(const resp::Value &request, Connection &connection) const {
@@ -29,113 +39,133 @@ void RequestHandler::handle(const resp::Value &request, Connection &connection) 
 }
 
 void RequestHandler::handle_command(const resp::Array &command, Connection &connection) const {
-    const auto &tokens = command.value;
-
-    if (!tokens.has_value() || tokens->empty()) {
+    if (!command.value.has_value()) {
         connection.send(resp::syntax_error);
         return;
     }
 
-    const auto first = std::get_if<resp::BulkString>(&tokens->front());
-    if (first == nullptr) {
-        connection.send(resp::syntax_error);
-        return;
+    const auto tokens = Tokenizer{*command.value};
+
+    for (const auto &token: tokens) {
+        if (!token.has_value()) {
+            connection.send(resp::syntax_error);
+            return;
+        }
     }
 
+    const auto name = **tokens.begin();
 
-    std::string name{*first->value};
-    std::ranges::transform(name, name.begin(), [](const unsigned char c) {
-        return std::toupper(c);
-    });
-
-    if (name == "PING") {
-        handle_ping(*tokens, connection);
-    } else if (name == "SET") {
-        handle_set(*tokens, connection);
-    } else if (name == "GET") {
-        handle_get(*tokens, connection);
-    } else if (name == "FLUSHDB") {
-        handle_flushdb(*tokens, connection);
+    if (iequals(name, "PING")) {
+        handle_ping(tokens, connection);
+    } else if (iequals(name, "SET")) {
+        handle_set(tokens, connection);
+    } else if (iequals(name, "GET")) {
+        handle_get(tokens, connection);
+    } else if (iequals(name, "FLUSHDB")) {
+        handle_flushdb(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
 }
 
-void RequestHandler::handle_ping(const std::vector<resp::Value> &tokens, Connection &connection) {
-    assert(!tokens.empty());
-
+void RequestHandler::handle_ping(const Tokenizer &tokens, Connection &connection) {
     resp::Value response;
     if (tokens.size() == 1) {
         connection.send(resp::SimpleString{"PONG"});
-    } else {
-        const auto argument = std::get_if<resp::BulkString>(&tokens[1]);
-        if (argument == nullptr) {
-            connection.send(resp::syntax_error);
-            return;
-        }
-        connection.send(*argument);
+    } else if (tokens.size() == 2) {
+        const resp::Value &argument = tokens.get_value(1);
+        connection.send(argument);
     }
 }
 
-void RequestHandler::handle_set(const std::vector<resp::Value> &tokens, Connection &connection) const {
+void RequestHandler::handle_set(const Tokenizer &tokens, Connection &connection) const {
     if (tokens.size() < 3) {
         connection.send(resp::syntax_error);
         return;
     }
 
-    const auto key = std::get_if<resp::BulkString>(&tokens[1]);
-    if (key == nullptr || !key->value.has_value()) {
-        connection.send(resp::syntax_error);
-        return;
-    }
-
-    const auto value = std::get_if<resp::BulkString>(&tokens[2]);
-    if (value == nullptr || !value->value.has_value()) {
-        connection.send(resp::syntax_error);
-        return;
-    }
-
+    const auto key = tokens.get_string(1);
 
     bool nx{false};
     bool xx{false};
     bool get{false};
-
+    std::optional<Timestamp> expiry{std::nullopt};
     for (size_t i{3}; i < tokens.size(); ++i) {
-        const auto option = std::get_if<resp::BulkString>(&tokens[i]);
+        const auto option = *tokens.get_string(i);
 
-        if (option == nullptr || !option->value.has_value()) {
-            connection.send(resp::syntax_error);
-            return;
-        }
-
-        if (iequals(*option->value, "NX")) {
+        if (iequals(option, "NX")) {
             if (xx) {
                 connection.send(resp::syntax_error);
                 return;
             }
             nx = true;
-        } else if (iequals(*option->value, "XX")) {
+        } else if (iequals(option, "XX")) {
             if (nx) {
                 connection.send(resp::syntax_error);
                 return;
             }
             xx = true;
-        } else if (iequals(*option->value, "GET")) {
+        } else if (iequals(option, "GET")) {
             get = true;
+        } else if (iequals(option, "EX")) {
+            if (expiry.has_value() || i == tokens.size() - 1) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+
+            const auto duration = try_parse_positive_int(*tokens.get_string(++i));
+            if (!duration.has_value()) {
+                connection.send(resp::syntax_error);
+            }
+            expiry = Clock::now() + std::chrono::seconds(*duration);
+        } else if (iequals(option, "PX")) {
+            if (expiry.has_value() || i == tokens.size() - 1) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+
+            const auto duration = try_parse_positive_int(*tokens.get_string(++i));
+            if (!duration.has_value()) {
+                connection.send(resp::syntax_error);
+            }
+            expiry = Clock::now() + std::chrono::milliseconds(*duration);
+        } else if (iequals(option, "EXAT")) {
+            if (expiry.has_value() || i == tokens.size() - 1) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+
+            const auto timestamp = try_parse_positive_int(*tokens.get_string(++i));
+            if (!timestamp.has_value()) {
+                connection.send(resp::syntax_error);
+            }
+            expiry = Timestamp{std::chrono::seconds(*timestamp)};
+        } else if (iequals(option, "PXAT")) {
+            if (expiry.has_value() || i == tokens.size() - 1) {
+                connection.send(resp::syntax_error);
+                return;
+            }
+
+            const auto timestamp = try_parse_positive_int(*tokens.get_string(++i));
+            if (!timestamp.has_value()) {
+                connection.send(resp::syntax_error);
+            }
+            expiry = Timestamp{std::chrono::milliseconds(*timestamp)};
         } else {
             connection.send(resp::syntax_error);
             return;
         }
     }
 
-    const bool contains = m_dictionary.contains(*key->value);
-    if (nx && contains || xx && !contains) {
+    const bool exists = m_dictionary.exists(key->data());
+    if (nx && exists || xx && !exists) {
         connection.send(resp::nil);
         return;
     }
 
+    const auto &value = tokens.get_value(2);
     if (get) {
-        const auto response = m_dictionary.set_and_get(*key->value, *value);
+        const auto response = m_dictionary.set_and_get(key->data(), value, expiry);
 
         if (response.has_value() && std::holds_alternative<resp::BulkString>(*response)) {
             connection.send(*response);
@@ -145,37 +175,36 @@ void RequestHandler::handle_set(const std::vector<resp::Value> &tokens, Connecti
         return;
     }
 
-    m_dictionary.set(*key->value, *value);
+    m_dictionary.set(key->data(), value, expiry);
     connection.send(resp::ok);
 }
 
-void RequestHandler::handle_get(const std::vector<resp::Value> &tokens, Connection &connection) const {
+void RequestHandler::handle_get(const Tokenizer &tokens, Connection &connection) const {
     if (tokens.size() < 2) {
         connection.send(resp::syntax_error);
         return;
     }
 
-    const auto key = std::get_if<resp::BulkString>(&tokens[1]);
-    if (!key || !key->value) {
-        connection.send(resp::syntax_error);
-        return;
-    }
+    const auto key = tokens.get_string(1);
 
-    const auto value = m_dictionary.get(*key->value);
+    const auto value = m_dictionary.get(key->data());
     if (!value) {
         connection.send(resp::nil);
         return;
     }
 
     if (!std::holds_alternative<resp::BulkString>(value->get())) {
-        connection.send(resp::syntax_error);
+        connection.send(resp::SimpleError{"ERR", "cannot get non-string type"});
         return;
     }
 
     connection.send(*value);
 }
 
-void RequestHandler::handle_flushdb(const std::vector<resp::Value> &tokens, Connection &connection) const {
+void RequestHandler::handle_flushdb(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() > 2) {
+        connection.send(resp::syntax_error);
+    }
     m_dictionary.flush();
     connection.send(resp::ok);
 }

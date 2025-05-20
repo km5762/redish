@@ -9,22 +9,27 @@
 
 #include "resp_parser.h"
 
+using Clock = std::chrono::system_clock;
+using Timestamp = std::chrono::time_point<Clock>;
 
 class Dictionary {
 public:
     std::optional<std::reference_wrapper<resp::Value> > get(const std::string &key);
 
-    void set(const std::string &key, const resp::Value &value);
+    void set(const std::string &key, const resp::Value &value, const std::optional<Timestamp> &expiry = std::nullopt);
 
     std::optional<resp::Value> set_and_get(const std::string &key,
-                                           const resp::Value &value);
+                                           const resp::Value &value,
+                                           const std::optional<Timestamp> &expiry = std::nullopt);
 
     void flush();
 
-    bool contains(const std::string &key) const;
+    bool exists(const std::string &key) const;
 
 private:
-    std::unordered_map<std::string, resp::Value> m_map{};
+    std::unordered_map<std::string, std::pair<resp::Value, std::optional<Timestamp> > > m_map{};
+
+    bool expired(const std::string &key) const;
 };
 
 

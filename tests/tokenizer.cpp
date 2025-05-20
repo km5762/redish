@@ -11,7 +11,7 @@ using namespace resp;
 
 TEST(Tokenizer, EmptyArray) {
     const Array tokens = make_array();
-    const Tokenizer tokenizer{tokens};
+    const Tokenizer tokenizer{(*tokens.value)};
 
     const auto it = tokenizer.begin();
     const auto end = tokenizer.end();
@@ -21,7 +21,7 @@ TEST(Tokenizer, EmptyArray) {
 
 TEST(Tokenizer, SingleValidString) {
     const Array tokens = make_array("hello");
-    const Tokenizer tokenizer{tokens};
+    const Tokenizer tokenizer{(*tokens.value)};
 
     auto it = tokenizer.begin();
     auto end = tokenizer.end();
@@ -36,7 +36,7 @@ TEST(Tokenizer, SingleValidString) {
 
 TEST(Tokenizer, SingleNullString) {
     const Array tokens = make_array(std::nullopt);
-    const Tokenizer tokenizer{tokens};
+    const Tokenizer tokenizer{(*tokens.value)};
 
     auto it = tokenizer.begin();
     auto end = tokenizer.end();
@@ -51,7 +51,7 @@ TEST(Tokenizer, SingleNullString) {
 
 TEST(Tokenizer, MultipleMixedStrings) {
     const Array tokens = make_array("foo", std::nullopt, "bar");
-    Tokenizer tokenizer(tokens);
+    Tokenizer tokenizer((*tokens.value));
 
     auto it = tokenizer.begin();
     auto end = tokenizer.end();
@@ -75,7 +75,7 @@ TEST(Tokenizer, MultipleMixedStrings) {
 TEST(Tokenizer, IteratorEquality) {
     BulkString s1{std::make_optional<std::string>("value")};
     const Array tokens = make_array("value");
-    Tokenizer tokenizer(tokens);
+    Tokenizer tokenizer((*tokens.value));
 
     auto begin = tokenizer.begin();
     auto end = tokenizer.end();
@@ -85,4 +85,18 @@ TEST(Tokenizer, IteratorEquality) {
     ++copy;
     EXPECT_NE(copy, begin);
     EXPECT_EQ(copy, end);
+}
+
+TEST(Tokenizer, Index) {
+    BulkString s1{std::make_optional<std::string>("value")};
+    const Array tokens = make_array("value");
+    Tokenizer tokenizer((*tokens.value));
+    EXPECT_EQ("value", tokenizer.get_string(0));
+}
+
+TEST(Tokenizer, IndexOutOfBounds) {
+    BulkString s1{std::make_optional<std::string>("value")};
+    const Array tokens = make_array("value");
+    Tokenizer tokenizer((*tokens.value));
+    EXPECT_EQ(std::nullopt, tokenizer.get_string(2));
 }

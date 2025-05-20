@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from redis import ResponseError
@@ -92,6 +93,32 @@ class Requests(unittest.TestCase):
         self.send("set", "key", "value")
         self.assertEqual(b"value", self.send("set", "key", "value1", "get"))
         self.assertEqual(b"value1", self.send("set", "key", "value2", "get"))
+
+    def test_set_ex(self):
+        self.send("set", "key", "value", "ex", "1")
+        self.assertEqual(b"value", self.send("get", "key"))
+        time.sleep(1.1)
+        self.assertEqual(None, self.send("get", "key"))
+
+    def test_set_px(self):
+        self.send("set", "key", "value", "px", "1000")
+        self.assertEqual(b"value", self.send("get", "key"))
+        time.sleep(1.1)
+        self.assertEqual(None, self.send("get", "key"))
+
+    def test_set_exat(self):
+        expiry = str(int(time.time()) + 1)
+        self.send("set", "key", "value", "exat", expiry)
+        self.assertEqual(b"value", self.send("get", "key"))
+        time.sleep(1.1)
+        self.assertEqual(None, self.send("get", "key"))
+
+    def test_set_pxat(self):
+        expiry = str(int((time.time() + 1) * 1000))
+        self.send("set", "key", "value", "pxat", expiry)
+        self.assertEqual(b"value", self.send("get", "key"))
+        time.sleep(1.1)
+        self.assertEqual(None, self.send("get", "key"))
 
 
 if __name__ == '__main__':
