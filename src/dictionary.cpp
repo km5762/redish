@@ -39,6 +39,10 @@ bool Dictionary::exists(const std::string &key) const {
     return m_map.contains(key);
 }
 
+void Dictionary::del(const std::string &key) {
+    m_map.erase(key);
+}
+
 bool Dictionary::expired(const std::string &key) const {
     if (!exists(key)) {
         return false;

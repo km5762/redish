@@ -26,6 +26,8 @@ public:
 
     bool exists(const std::string &key) const;
 
+    void del(const std::string &key);
+
 private:
     std::unordered_map<std::string, std::pair<resp::Value, std::optional<Timestamp> > > m_map{};
 

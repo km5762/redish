@@ -134,6 +134,19 @@ class Requests(unittest.TestCase):
         self.send("set", "key2", "value")
         self.assertEqual(2, self.send("exists", "key1", "key2"))
 
+    def test_del_does_not_exist(self):
+        self.assertEqual(0, self.send("del", "key"))
+
+    def test_del_does_exist(self):
+        self.send("set", "key", "value")
+        self.assertEqual(1, self.send("del", "key"))
+
+    def test_del_multiple(self):
+        self.send("set", "key", "value")
+        self.send("set", "key1", "value")
+        self.send("set", "key2", "value")
+        self.assertEqual(2, self.send("del", "key1", "key2"))
+
 
 if __name__ == '__main__':
     unittest.main()

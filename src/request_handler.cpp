@@ -65,6 +65,8 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_flushdb(tokens, connection);
     } else if (iequals(name, "EXISTS")) {
         handle_exists(tokens, connection);
+    } else if (iequals(name, "DEL")) {
+        handle_del(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -228,6 +230,25 @@ void RequestHandler::handle_exists(const Tokenizer &tokens, Connection &connecti
         const auto key = tokens.get_string(i);
 
         if (m_dictionary.exists(key->data())) {
+            ++count;
+        }
+    }
+
+    connection.send(resp::Integer{count});
+}
+
+void RequestHandler::handle_del(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() < 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    int count{0};
+    for (size_t i{1}; i < tokens.size(); ++i) {
+        const auto key = tokens.get_string(i);
+
+        if (m_dictionary.exists(key->data())) {
+            m_dictionary.del(key->data());
             ++count;
         }
     }
