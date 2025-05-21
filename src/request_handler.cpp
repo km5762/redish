@@ -30,6 +30,29 @@ namespace {
         }
         return std::nullopt;
     }
+
+    const resp::SimpleError &get_incr_error_message(const Dictionary::incr_error e) {
+        static const std::unordered_map<Dictionary::incr_error, resp::SimpleError> table = {
+            {
+                Dictionary::incr_error::non_bulk_string_value,
+                {"ERR", "cannot increment or decrement a non-string value"}
+            },
+            {
+                Dictionary::incr_error::null_bulk_string_value,
+                {"ERR", "value is nil"}
+            },
+            {
+                Dictionary::incr_error::non_numeric_value,
+                {"ERR", "value is not an integer or out of range"}
+            },
+            {static_cast<Dictionary::incr_error>(-1), {"ERR", "unknown error"}}
+        };
+
+        if (table.contains(e)) {
+            return table.at(e);
+        }
+        return table.at(static_cast<Dictionary::incr_error>(-1));
+    }
 }
 
 void RequestHandler::handle(const resp::Value &request, Connection &connection) const {
@@ -69,6 +92,8 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_del(tokens, connection);
     } else if (iequals(name, "INCR")) {
         handle_incr(tokens, connection);
+    } else if (iequals(name, "DECR")) {
+        handle_decr(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -269,20 +294,25 @@ void RequestHandler::handle_incr(const Tokenizer &tokens, Connection &connection
     const auto result = m_dictionary.incr(key->data());
 
     if (!result.has_value()) {
-        switch (result.error()) {
-            case Dictionary::incr_error::non_bulk_string_value:
-                connection.send(resp::SimpleError{"ERR", "cannot increment non-string value"});
-                break;
-            case Dictionary::incr_error::null_bulk_string_value:
-                connection.send(resp::SimpleError{"ERR", "value is nil"});
-                break;
-            case Dictionary::incr_error::non_numeric_value:
-                connection.send(resp::SimpleError{"ERR", "value is not an integer or out of range"});
-                break;
-            default:
-                connection.send(resp::SimpleError{"ERR", "unknown error"});
-                break;
-        }
+        connection.send(get_incr_error_message(result.error()));
+        return;
+    }
+
+    connection.send(resp::Integer{result.value()});
+}
+
+void RequestHandler::handle_decr(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() != 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto key = tokens.get_string(1);
+
+    const auto result = m_dictionary.incr(key->data(), -1);
+
+    if (!result.has_value()) {
+        connection.send(get_incr_error_message(result.error()));
         return;
     }
 

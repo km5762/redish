@@ -49,7 +49,7 @@ void Dictionary::del(const std::string &key) {
     m_map.erase(key);
 }
 
-std::expected<int64_t, Dictionary::incr_error> Dictionary::incr(const std::string &key) {
+std::expected<int64_t, Dictionary::incr_error> Dictionary::incr(const std::string &key, const int64_t amount) {
     int64_t previous{0};
 
     if (const auto &value = get(key)) {
@@ -76,11 +76,11 @@ std::expected<int64_t, Dictionary::incr_error> Dictionary::incr(const std::strin
             return static_cast<size_t>(ptr - buffer); // number of chars written
         });
 
-        return previous + 1;
+        return previous + amount;
     }
 
-    set(key, resp::BulkString{std::to_string(previous + 1)});
-    return previous + 1;
+    set(key, resp::BulkString{std::to_string(previous + amount)});
+    return previous + amount;
 }
 
 bool Dictionary::expired(const std::string &key) const {

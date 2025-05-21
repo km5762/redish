@@ -37,6 +37,8 @@ private:
     void handle_del(const Tokenizer &tokens, Connection &connection) const;
 
     void handle_incr(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_decr(const Tokenizer &tokens, Connection &connection) const;
 };
 
 

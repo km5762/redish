@@ -169,6 +169,18 @@ class Requests(unittest.TestCase):
         with self.assertRaises(ResponseError):
             self.send("incr key")
 
+    def test_decr_nonexistent(self):
+        self.assertEqual(-1, self.send("decr key"))
+
+    def test_decr_existing(self):
+        self.send("set key 1")
+        self.assertEqual(0, self.send("decr key"))
+
+    def test_decr_non_numeric(self):
+        self.send("set key value")
+        with self.assertRaises(ResponseError):
+            self.send("decr key")
+
 
 if __name__ == '__main__':
     unittest.main()
