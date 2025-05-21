@@ -39,6 +39,12 @@ private:
     void handle_incr(const Tokenizer &tokens, Connection &connection) const;
 
     void handle_decr(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_lpush(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_rpush(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_lrange(const Tokenizer &tokens, Connection &connection) const;
 };
 
 

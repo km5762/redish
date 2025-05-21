@@ -49,6 +49,68 @@ void Dictionary::del(const std::string &key) {
     m_map.erase(key);
 }
 
+ssize_t Dictionary::push(const std::string &key, const std::span<const resp::Value> values, const bool reverse) {
+    const auto value = get(key);
+
+    if (!value.has_value()) {
+        m_map[key] = {
+            resp::Array{
+                reverse
+                    ? std::vector<resp::Value>{values.rbegin(), values.rend()}
+                    : std::vector<resp::Value>{values.begin(), values.end()},
+            },
+            std::nullopt,
+        };
+        return static_cast<ssize_t>(values.size());
+    }
+
+    auto *array = std::get_if<resp::Array>(&value->get());
+    if (array == nullptr || !array->value.has_value()) {
+        return -1;
+    }
+
+    if (reverse) {
+        array->value->insert(array->value->begin(), values.rbegin(), values.rend());
+    } else {
+        array->value->insert(array->value->end(), values.begin(), values.end());
+    }
+
+    return static_cast<ssize_t>(array->value->size());
+}
+
+std::optional<std::span<const resp::Value> >
+Dictionary::range(const std::string &key, ptrdiff_t start, ptrdiff_t stop) {
+    const auto value = get(key);
+
+    if (!value.has_value()) {
+        return std::span<const resp::Value>{};
+    }
+
+    auto *array = std::get_if<resp::Array>(&value->get());
+    if (array == nullptr || !array->value.has_value()) {
+        return std::nullopt;
+    }
+
+    const auto size = static_cast<ptrdiff_t>(array->value->size());
+
+    if (start < 0) {
+        start = size + start;
+    }
+
+    if (stop < 0) {
+        stop = size + stop;
+    }
+
+    if (size == 0 || stop < start) {
+        return std::span<const resp::Value>{};
+    }
+
+    start = std::clamp(start, ptrdiff_t{0}, size - 1);
+    stop = std::clamp(stop, start, size - 1);
+
+    return std::span{array->value->data() + start, static_cast<size_t>(stop - start + 1)};
+}
+
 std::expected<int64_t, Dictionary::incr_error> Dictionary::incr(const std::string &key, const int64_t amount) {
     int64_t previous{0};
 

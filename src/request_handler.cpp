@@ -21,13 +21,24 @@ namespace {
         return std::ranges::equal(lhs, rhs, ichar_equals);
     }
 
-    std::optional<int64_t> try_parse_positive_int(std::string_view str) {
-        int64_t result;
-        auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
+    template<typename T>
+    std::optional<T> try_parse_numeric(const std::string_view string) {
+        T result;
+        auto [ptr, ec] = std::from_chars(string.data(), string.data() + string.size(), result);
 
-        if (ec == std::errc() && ptr == str.data() + str.size() && result > 0) {
+        if (ec == std::errc() && ptr == string.data() + string.size()) {
             return result;
         }
+        return std::nullopt;
+    }
+
+    std::optional<int64_t> try_parse_positive_int(const std::string_view string) {
+        std::optional result = try_parse_numeric<int64_t>(string);
+
+        if (result.has_value() && *result > 0) {
+            return result;
+        }
+
         return std::nullopt;
     }
 
@@ -94,6 +105,12 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_incr(tokens, connection);
     } else if (iequals(name, "DECR")) {
         handle_decr(tokens, connection);
+    } else if (iequals(name, "LPUSH")) {
+        handle_lpush(tokens, connection);
+    } else if (iequals(name, "RPUSH")) {
+        handle_rpush(tokens, connection);
+    } else if (iequals(name, "LRANGE")) {
+        handle_lrange(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -317,6 +334,73 @@ void RequestHandler::handle_decr(const Tokenizer &tokens, Connection &connection
     }
 
     connection.send(resp::Integer{result.value()});
+}
+
+void RequestHandler::handle_lpush(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() < 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto key = tokens.get_string(1);
+    const resp::Value *ptr = &tokens.get_value(2);
+    const std::span values{ptr, tokens.size() - 2};
+    constexpr bool reverse = true;
+
+    const ssize_t new_size = m_dictionary.push(key->data(), values, reverse);
+    if (new_size == -1) {
+        connection.send(resp::SimpleError{"ERR", "cannot push to non-array value"});
+        return;
+    }
+
+    connection.send(resp::Integer{new_size});
+}
+
+void RequestHandler::handle_rpush(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() < 2) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto key = tokens.get_string(1);
+    const resp::Value *ptr = &tokens.get_value(2);
+    const std::span values{ptr, tokens.size() - 2};
+    constexpr bool reverse = false;
+
+    const ssize_t new_size = m_dictionary.push(key->data(), values, reverse);
+    if (new_size == -1) {
+        connection.send(resp::SimpleError{"ERR", "cannot push to non-array value"});
+        return;
+    }
+
+    connection.send(resp::Integer{new_size});
+}
+
+void RequestHandler::handle_lrange(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() != 4) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto key = tokens.get_string(1);
+    const auto start = try_parse_numeric<ptrdiff_t>(*tokens.get_string(2));
+    const auto stop = try_parse_numeric<ptrdiff_t>(*tokens.get_string(3));
+
+    if (!start || !stop) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    const auto range = m_dictionary.range(key->data(), *start, *stop);
+
+    if (!range.has_value()) {
+        connection.send(resp::SimpleError{"ERR", "cannot get range of non-array type"});
+        return;
+    }
+
+    connection.send(resp::Array{
+        std::vector<resp::Value>{range->begin(), range->end()}
+    });
 }
 
 

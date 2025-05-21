@@ -181,6 +181,46 @@ class Requests(unittest.TestCase):
         with self.assertRaises(ResponseError):
             self.send("decr key")
 
+    def test_lpush_nonexistent(self):
+        self.send("lpush key 1 2 3")
+        self.assertEqual([b"3", b"2", b"1"], self.send("lrange key 0 -1"))
+
+    def test_lpush_existing(self):
+        self.send("lpush key 1 2")
+        self.send("lpush key 3 4")
+        self.assertEqual([b"4", b"3", b"2", b"1"], self.send("lrange key 0 -1"))
+
+    def test_rpush_nonexistent(self):
+        self.send("rpush key 1 2 3")
+        self.assertEqual([b"1", b"2", b"3"], self.send("lrange key 0 -1"))
+
+    def test_rpush_existing(self):
+        self.send("rpush key 1 2")
+        self.send("rpush key 3 4")
+        self.assertEqual([b"1", b"2", b"3", b"4"], self.send("lrange key 0 -1"))
+
+    def test_lrange_negative_start(self):
+        self.send("rpush key 1 2 3")
+        self.assertEqual([b"1", b"2", b"3"], self.send("lrange key -3 2"))
+
+    def test_lrange_negative_end(self):
+        self.send("rpush key 1 2 3")
+        self.assertEqual([b"1", b"2"], self.send("lrange key 0 -2"))
+
+    def test_lrange_clamp_start(self):
+        self.send("rpush key 1 2 3")
+        self.assertEqual([b"1", b"2", b"3"], self.send("lrange key -10 -1"))
+        self.assertEqual([], self.send("lrange key 10 -1"))
+
+    def test_lrange_clamp_end(self):
+        self.send("rpush key 1 2 3")
+        self.assertEqual([], self.send("lrange key 0 -10"))
+        self.assertEqual([b"1", b"2", b"3"], self.send("lrange key 0 10"))
+
+    def test_lrange_empty(self):
+        self.send("rpush key")
+        self.assertEqual([], self.send("lrange key 0 -1"))
+
 
 if __name__ == '__main__':
     unittest.main()

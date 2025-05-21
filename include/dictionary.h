@@ -29,6 +29,10 @@ public:
 
     void del(const std::string &key);
 
+    ssize_t push(const std::string &key, std::span<const resp::Value> values, bool reverse = false);
+
+    std::optional<std::span<const resp::Value> > range(const std::string &key, ptrdiff_t start, ptrdiff_t stop);
+
     enum class incr_error {
         non_bulk_string_value,
         null_bulk_string_value,
