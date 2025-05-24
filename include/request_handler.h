@@ -45,6 +45,8 @@ private:
     void handle_rpush(const Tokenizer &tokens, Connection &connection) const;
 
     void handle_lrange(const Tokenizer &tokens, Connection &connection) const;
+
+    void handle_save(const Tokenizer &tokens, Connection &connection) const;
 };
 
 

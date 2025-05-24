@@ -221,6 +221,21 @@ class Requests(unittest.TestCase):
         self.send("rpush key")
         self.assertEqual([], self.send("lrange key 0 -1"))
 
+    def test_lrange_non_array(self):
+        self.send("set key value")
+        with self.assertRaises(ResponseError):
+            self.send("lrange key")
+
+    def test_lpush_non_array(self):
+        self.send("set key value")
+        with self.assertRaises(ResponseError):
+            self.send("lpush key")
+
+    def test_rpush_non_array(self):
+        self.send("set key value")
+        with self.assertRaises(ResponseError):
+            self.send("rpush key")
+
 
 if __name__ == '__main__':
     unittest.main()

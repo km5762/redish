@@ -9,6 +9,7 @@
 #include <queue>
 #include <string_view>
 #include <unistd.h>
+#include <filesystem>
 
 #include "connection.h"
 #include "dictionary.h"
@@ -18,6 +19,8 @@ public:
     [[noreturn]] void start(std::string_view port = "6379", int backlog_size = 128);
 
     ~Server() { close(m_socket); }
+
+    inline static std::filesystem::path dump_path{"dump.dish"};
 
 private:
     int m_socket{};

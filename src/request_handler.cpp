@@ -8,7 +8,9 @@
 
 #include <cassert>
 #include <format>
+#include <fstream>
 
+#include "server.h"
 #include "tokenizer.h"
 
 namespace {
@@ -111,6 +113,8 @@ void RequestHandler::handle_command(const resp::Array &command, Connection &conn
         handle_rpush(tokens, connection);
     } else if (iequals(name, "LRANGE")) {
         handle_lrange(tokens, connection);
+    } else if (iequals(name, "SAVE")) {
+        handle_save(tokens, connection);
     } else {
         connection.send(resp::SimpleError{std::format("ERR unknown command '{}'", name)});
     }
@@ -402,6 +406,20 @@ void RequestHandler::handle_lrange(const Tokenizer &tokens, Connection &connecti
         std::vector<resp::Value>{range->begin(), range->end()}
     });
 }
+
+void RequestHandler::handle_save(const Tokenizer &tokens, Connection &connection) const {
+    if (tokens.size() != 1) {
+        connection.send(resp::syntax_error);
+        return;
+    }
+
+    std::ofstream file{Server::dump_path};
+
+    m_dictionary.save(file);
+
+    connection.send(resp::ok);
+}
+
 
 
 

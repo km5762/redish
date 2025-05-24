@@ -50,6 +50,10 @@ namespace resp {
     inline constexpr Value syntax_error{SimpleError{"ERR", "syntax error"}};
 
     void serialize(const Value &value, std::vector<char> &out);
+
+    void save(const Value &value, std::ostream &out);
+
+    Value load(std::istream &in);
 }
 
 #endif //RESP_H

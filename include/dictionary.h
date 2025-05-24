@@ -41,6 +41,10 @@ public:
 
     std::expected<int64_t, incr_error> incr(const std::string &key, int64_t amount = 1);
 
+    void save(std::ostream &stream) const;
+
+    void load(std::istream &stream);
+
 private:
     std::unordered_map<std::string, std::pair<resp::Value, std::optional<Timestamp> > > m_map{};
 

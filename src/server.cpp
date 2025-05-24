@@ -15,6 +15,8 @@
 #include <system_error>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <fstream>
+#include <bits/fs_fwd.h>
 
 #include "acceptor.h"
 #include "request_handler.h"
@@ -61,6 +63,11 @@ void Server::start(const std::string_view port, const int backlog_size) {
 
     if (listen(m_socket, backlog_size) != 0) {
         throw std::system_error(errno, std::system_category(), "Server::start listen");
+    }
+
+    if (exists(dump_path)) {
+        std::ifstream file{dump_path};
+        m_dictionary.load(file);
     }
 
     RequestHandler request_handler{m_dictionary};

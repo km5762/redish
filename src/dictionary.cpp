@@ -7,6 +7,7 @@
 #include <cassert>
 #include <chrono>
 #include <expected>
+#include <fstream>
 
 std::optional<std::reference_wrapper<resp::Value> > Dictionary::get(const std::string &key) {
     if (!exists(key)) {
@@ -143,6 +144,49 @@ std::expected<int64_t, Dictionary::incr_error> Dictionary::incr(const std::strin
 
     set(key, resp::BulkString{std::to_string(previous + amount)});
     return previous + amount;
+}
+
+void Dictionary::save(std::ostream &stream) const {
+    const size_t size{m_map.size()};
+    stream.write(reinterpret_cast<const char *>(&size), sizeof(size));
+    for (const auto &[key, value]: m_map) {
+        const auto key_size{static_cast<std::streamsize>(key.size())};
+        stream.write(reinterpret_cast<const char *>(&key_size), sizeof(key_size));
+        stream.write(key.data(), key_size);
+
+        resp::save(value.first, stream);
+
+        const auto timestamp = value.second;
+        const bool has_timestamp = timestamp.has_value();
+        stream.write(reinterpret_cast<const char *>(&has_timestamp), sizeof(bool));
+
+        if (has_timestamp) {
+            const auto count = timestamp->time_since_epoch().count();
+            stream.write(reinterpret_cast<const char *>(&count), sizeof(count));
+        }
+    }
+}
+
+void Dictionary::load(std::istream &stream) {
+    size_t size{};
+    stream.read(reinterpret_cast<char *>(&size), sizeof(size));
+
+    for (size_t i{0}; i < size; ++i) {
+        std::streamsize key_size{};
+        stream.read(reinterpret_cast<char *>(&key_size), sizeof(key_size));
+        std::string key(key_size, '\0');
+        stream.read(key.data(), key_size);
+        const resp::Value value{resp::load(stream)};
+        bool has_timestamp{};
+        stream.read(reinterpret_cast<char *>(&has_timestamp), sizeof(bool));
+        std::optional<Timestamp> timestamp{std::nullopt};
+        if (has_timestamp) {
+            Clock::duration::rep count{};
+            stream.read(reinterpret_cast<char *>(&count), sizeof(count));
+            timestamp = Timestamp{Clock::duration{count}};
+        }
+        set(key, value, timestamp);
+    }
 }
 
 bool Dictionary::expired(const std::string &key) const {
