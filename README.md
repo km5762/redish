@@ -1,4 +1,4 @@
-# Redis Clone in C++
+# Redish - A Redis Clone in C++
 
 This project is a simplified Redis clone written in C++. It features asynchronous I/O handling using epoll, a reactor-based architecture, and support for a subset of core Redis commands. The server is built from the ground up with scalability and testability in mind.
 
